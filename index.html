@@ -61,7 +61,18 @@
       // CONFIG
       // ============================================================================
 
-      const FIREBASE_CONFIG = {
+      const firebaseConfigDev = {
+        apiKey: "AIzaSyBWQt7JoTp9xpMbWlFqDZXGu99hbbo6KNQ",
+        authDomain: "schoonmaak-tracker-dev.firebaseapp.com",
+        databaseURL:
+          "https://schoonmaak-tracker-dev-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "schoonmaak-tracker-dev",
+        storageBucket: "schoonmaak-tracker-dev.firebasestorage.app",
+        messagingSenderId: "683196128061",
+        appId: "1:683196128061:web:713774020f21298a378354",
+      };
+
+      const firebaseConfigProd = {
         apiKey: "AIzaSyCy18JxgaB2P-mL-WeKu36XSzykhYi-ypY",
         authDomain: "schoonmaak-tracker.firebaseapp.com",
         databaseURL:
@@ -72,7 +83,23 @@
         appId: "1:276714806125:web:4394e4d2412905c81e9864",
       };
 
-      firebase.initializeApp(FIREBASE_CONFIG);
+      const isDevelopment =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname === "192.168.0.188";
+
+      const firebaseConfig = isDevelopment
+        ? firebaseConfigDev
+        : firebaseConfigProd;
+
+      console.log(
+        `🔥 Firebase Environment: ${
+          isDevelopment ? "DEVELOPMENT" : "PRODUCTION"
+        }`
+      );
+      console.log(`📦 Project: ${firebaseConfig.projectId}`);
+
+      firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
 
       const ACTIVITY_LIMIT = 200;
@@ -203,27 +230,125 @@
       // COMPONENTS
       // ============================================================================
 
-      const UserPicker = ({ people, onSelect }) => (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-          <div className="max-w-sm w-full bg-white rounded-2xl shadow-2xl p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
-              Wie ben jij?
-            </h2>
-            <p className="text-gray-600 text-center mb-6">Selecteer je naam</p>
-            <div className="space-y-3">
-              {people.map((name) => (
+      const UserPicker = ({ people, onSelect }) => {
+        const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+        const isStandalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.navigator.standalone;
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+            <div className="max-w-sm w-full space-y-4">
+              <div className="bg-white rounded-2xl shadow-2xl p-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
+                  Wie ben jij?
+                </h2>
+                <p className="text-gray-600 text-center mb-6">
+                  Selecteer je naam
+                </p>
+                <div className="space-y-3">
+                  {people.map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => onSelect(name)}
+                      className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all font-medium text-gray-700 hover:text-blue-700"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {!isStandalone && (
                 <button
-                  key={name}
-                  onClick={() => onSelect(name)}
-                  className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all font-medium text-gray-700 hover:text-blue-700"
+                  onClick={() => setShowInstallGuide(true)}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
                 >
-                  {name}
+                  <span className="text-xl">📱</span>
+                  <span className="font-medium">
+                    Installeer app op beginscherm
+                  </span>
                 </button>
-              ))}
+              )}
+
+              {/* Install Guide Modal */}
+              {showInstallGuide && (
+                <>
+                  <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-40"
+                    onClick={() => setShowInstallGuide(false)}
+                  />
+                  <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full max-h-[90vh] overflow-y-auto animate-fadeIn">
+                      <div className="flex justify-between items-start mb-4">
+                        <h2 className="text-xl font-bold text-gray-800">
+                          Installeer op beginscherm
+                        </h2>
+                        <button
+                          onClick={() => setShowInstallGuide(false)}
+                          className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Icons.X size={20} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                          <p className="text-sm text-blue-800 font-medium mb-1">
+                            iOS Safari instructies:
+                          </p>
+                          <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside">
+                            <li>
+                              Tik op het <strong>"Deel"</strong> icoontje
+                              onderaan (vierkant met pijl omhoog)
+                            </li>
+                            <li>
+                              Scroll naar beneden en kies{" "}
+                              <strong>"Zet op beginscherm"</strong>
+                            </li>
+                            <li>
+                              Tik op <strong>"Voeg toe"</strong>
+                            </li>
+                          </ol>
+                        </div>
+
+                        <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                          <p className="text-sm text-green-800 font-medium mb-1">
+                            Android Chrome instructies:
+                          </p>
+                          <ol className="text-sm text-green-700 space-y-2 list-decimal list-inside">
+                            <li>
+                              Tik op het <strong>menu</strong> icoontje (3
+                              puntjes rechtsboven)
+                            </li>
+                            <li>
+                              Selecteer{" "}
+                              <strong>"Toevoegen aan startscherm"</strong>
+                            </li>
+                            <li>
+                              Tik op <strong>"Toevoegen"</strong>
+                            </li>
+                          </ol>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            onClick={() => setShowInstallGuide(false)}
+                            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl font-medium transition-colors"
+                          >
+                            Begrepen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
-      );
+        );
+      };
 
       const ConfirmDialog = ({
         isOpen,
@@ -1144,6 +1269,52 @@
                             })}
                           </div>
                         )}
+
+                        {/* INDIVIDUAL STATS CARD - Current User Only */}
+                        {(() => {
+                          const userData = fullLeaderboard[user];
+                          if (!userData) return null;
+
+                          return (
+                            <div className="mt-8">
+                              <h3 className="text-lg font-bold text-gray-800 mb-4">
+                                📊 Mijn Punten
+                              </h3>
+                              <div className="bg-white rounded-xl shadow-md p-4">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="bg-green-50 rounded-lg p-2 text-center">
+                                    <div className="text-xs text-green-600 font-medium mb-1">
+                                      Op tijd
+                                    </div>
+                                    <div className="text-lg font-bold text-green-700">
+                                      {(userData.onTimePoints || 0).toFixed(1)}
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-yellow-50 rounded-lg p-2 text-center">
+                                    <div className="text-xs text-yellow-600 font-medium mb-1">
+                                      Te laat
+                                    </div>
+                                    <div className="text-lg font-bold text-yellow-700">
+                                      {(userData.latePoints || 0).toFixed(1)}
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-blue-50 rounded-lg p-2 text-center">
+                                    <div className="text-xs text-blue-600 font-medium mb-1">
+                                      🍽️ Bonus
+                                    </div>
+                                    <div className="text-lg font-bold text-blue-700">
+                                      {(userData.dishwasherPoints || 0).toFixed(
+                                        1
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </>
                     );
                   })()}
