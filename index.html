@@ -26,18 +26,39 @@
     ></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-
     <style>
       body {
         margin: 0;
         padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-          "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-          "Helvetica Neue", sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.2s ease-out;
+      }
+      @keyframes swanBounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-20px);
+        }
+      }
+      .swan-bounce {
+        animation: swanBounce 1s ease-in-out infinite;
       }
       @keyframes fadeIn {
         from {
@@ -57,12 +78,12 @@
   <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
-      // ============================================================================
-      // 📦 SECTION: Config & Setup
-      // ============================================================================
+    <script type="text/babel">
+      const { useState, useEffect, useCallback } = React;
 
-      const { useState, useEffect, useMemo, useRef } = React;
+      // ============================================================================
+      // CONFIG
+      // ============================================================================
 
       const firebaseConfigDev = {
         apiKey: "AIzaSyBWQt7JoTp9xpMbWlFqDZXGu99hbbo6KNQ",
@@ -103,50 +124,16 @@
       console.log(`📦 Project: ${firebaseConfig.projectId}`);
 
       firebase.initializeApp(firebaseConfig);
-      const database = firebase.database();
+      const db = firebase.database();
 
-      // Constants
-      const ACTIVITY_LOG_LIMIT = 100;
-      const DEADLINE_UPDATE_INTERVAL = 900000; // 15 minutes
-
-      // Time constants (milliseconds)
-      const MS_PER_MINUTE = 60000;
-      const MS_PER_HOUR = 3600000;
+      const ACTIVITY_LIMIT = 200;
       const MS_PER_DAY = 86400000;
 
-      // Time thresholds
-      const MINUTES_PER_HOUR = 60;
-      const HOURS_PER_DAY = 24;
-      const DAYS_PER_WEEK = 7;
-
-      // ISO 8601 week calculation
-      const DAYS_IN_WEEK = 7;
-      const SUNDAY = 0;
-      const MONDAY_OFFSET = 6;
-      const THURSDAY_OFFSET = 3;
-      const JAN_4TH = 4; // January 4th is always in ISO week 1
-
-      // Time values
-      const END_OF_DAY_HOUR = 23;
-      const END_OF_DAY_MINUTE = 59;
-      const END_OF_DAY_SECOND = 59;
-      const END_OF_DAY_MS = 999;
-
-      // Common CSS Classes
-      const CARD_BASE = "bg-white rounded-xl shadow-md";
-      const CARD_LARGE = "bg-white rounded-2xl shadow-lg";
-      const BUTTON_PRIMARY =
-        "bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors";
-      const BUTTON_SECONDARY =
-        "bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl font-medium transition-all";
-      const BUTTON_DANGER =
-        "bg-red-500 hover:bg-red-600 text-white p-3 rounded-xl font-medium transition-all";
-
       // ============================================================================
-      // 🎨 SECTION: Icon Components (Alphabetically Sorted)
+      // ICONS
       // ============================================================================
 
-      const Activity = ({ size = 24, className = "" }) => (
+      const Icon = ({ d, size = 24, className = "" }) => (
         <svg
           width={size}
           height={size}
@@ -158,519 +145,118 @@
           strokeLinejoin="round"
           className={className}
         >
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          {Array.isArray(d) ? (
+            d.map((path, i) => <path key={i} d={path} />)
+          ) : (
+            <path d={d} />
+          )}
         </svg>
       );
 
-      const Check = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      );
-
-      const ChevronDown = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      );
-
-      const ChevronLeft = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <polyline points="15 18 9 12 15 6"></polyline>
-        </svg>
-      );
-
-      const ChevronRight = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-      );
-
-      const Clock = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 16 14"></polyline>
-        </svg>
-      );
-
-      const History = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 16 14"></polyline>
-        </svg>
-      );
-
-      const Plus = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-      );
-
-      const RotateCcw = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <polyline points="1 4 1 10 7 10"></polyline>
-          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-        </svg>
-      );
-
-      const Settings = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-      );
-
-      const Trophy = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
-          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
-          <path d="M4 22h16"></path>
-          <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
-          <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
-          <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
-        </svg>
-      );
-
-      const X = ({ size = 24, className = "" }) => (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      );
+      const Icons = {
+        Check: (props) => <Icon d="M20 6L9 17l-5-5" {...props} />,
+        X: (props) => <Icon d={["M18 6L6 18", "M6 6l12 12"]} {...props} />,
+        ChevronLeft: (props) => <Icon d="M15 18l-6-6 6-6" {...props} />,
+        ChevronRight: (props) => <Icon d="M9 18l6-6-6-6" {...props} />,
+        ChevronDown: (props) => <Icon d="M6 9l6 6 6-6" {...props} />,
+        Settings: (props) => (
+          <Icon
+            d={[
+              "M12 15a3 3 0 100-6 3 3 0 000 6z",
+              "M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z",
+            ]}
+            {...props}
+          />
+        ),
+        Trophy: (props) => (
+          <Icon
+            d={[
+              "M6 9H4.5a2.5 2.5 0 010-5H6",
+              "M18 9h1.5a2.5 2.5 0 000-5H18",
+              "M4 22h16",
+              "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22",
+              "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22",
+              "M18 2H6v7a6 6 0 0012 0V2z",
+            ]}
+            {...props}
+          />
+        ),
+        Activity: (props) => <Icon d="M22 12h-4l-3 9L9 3l-3 9H2" {...props} />,
+        Clock: (props) => (
+          <Icon
+            d={["M12 22a10 10 0 100-20 10 10 0 000 20z", "M12 6v6l4 2"]}
+            {...props}
+          />
+        ),
+        Plus: (props) => <Icon d={["M12 5v14", "M5 12h14"]} {...props} />,
+      };
 
       // ============================================================================
-      // 🛠️ SECTION: Utility Functions
+      // UTILITIES
       // ============================================================================
 
-      // Toast notification system
-      const showToast = (message, type = "error") => {
-        const toastId = `toast-${Date.now()}`;
-        const bgColor =
+      const getWeekNumber = (date) => {
+        const target = new Date(date.valueOf());
+        const dayNr = (date.getDay() + 6) % 7;
+        target.setDate(target.getDate() - dayNr + 3);
+        const jan4 = new Date(target.getFullYear(), 0, 4);
+        const dayDiff = (target - jan4) / MS_PER_DAY;
+        return 1 + Math.ceil(dayDiff / 7);
+      };
+
+      const getWeekDateRange = (weekNum, year) => {
+        const jan4 = new Date(year, 0, 4);
+        const jan4Day = jan4.getDay() || 7;
+        const week1Monday = new Date(jan4);
+        week1Monday.setDate(jan4.getDate() - jan4Day + 1);
+        const monday = new Date(week1Monday);
+        monday.setDate(week1Monday.getDate() + (weekNum - 1) * 7);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return `${monday.getDate()}/${
+          monday.getMonth() + 1
+        } - ${sunday.getDate()}/${sunday.getMonth() + 1}`;
+      };
+
+      const formatTimestamp = (ts) => {
+        const date = new Date(ts);
+        const diff = Date.now() - ts;
+        const mins = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / MS_PER_DAY);
+        if (mins < 1) return "Zojuist";
+        if (mins < 60) return `${mins} min geleden`;
+        if (hours < 24) return `${hours} uur geleden`;
+        if (days < 7) return `${days} dag${days !== 1 ? "en" : ""} geleden`;
+        return date.toLocaleDateString("nl-NL", {
+          day: "numeric",
+          month: "short",
+        });
+      };
+
+      const toast = (msg, type = "error") => {
+        const id = `toast-${Date.now()}`;
+        const bg =
           type === "error"
             ? "bg-red-500"
             : type === "warning"
             ? "bg-orange-500"
             : "bg-green-500";
-
-        const toast = document.createElement("div");
-        toast.id = toastId;
-        toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
-        toast.style.animation = "slideUp 0.3s ease-out";
-        toast.innerHTML = `
-                <div class="flex items-center gap-3">
-                  <span>${message}</span>
-                  <button onclick="document.getElementById('${toastId}').remove()" class="hover:bg-white hover:bg-opacity-20 rounded p-1 transition-colors">
-                    ✕
-                  </button>
-                </div>
-              `;
-
-        // Add animation styles if not already present
-        if (!document.getElementById("toast-styles")) {
-          const style = document.createElement("style");
-          style.id = "toast-styles";
-          style.textContent = `
-                  @keyframes slideUp {
-                    from { transform: translateY(100px); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
-                  }
-                  @keyframes slideDown {
-                    from { transform: translateY(0); opacity: 1; }
-                    to { transform: translateY(100px); opacity: 0; }
-                  }
-                `;
-          document.head.appendChild(style);
-        }
-
-        document.body.appendChild(toast);
-
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-          toast.style.animation = "slideDown 0.3s ease-in";
-          setTimeout(() => toast.remove(), 300);
-        }, 5000);
-      };
-
-      // Expose to global scope for testing
-      window.showToast = showToast;
-
-      // Retry utility with exponential backoff
-      const retryWithBackoff = async (
-        operation,
-        maxRetries = 3,
-        baseDelay = 1000
-      ) => {
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-          try {
-            return await operation();
-          } catch (error) {
-            if (attempt === maxRetries) {
-              throw error; // Final attempt failed
-            }
-
-            const delay = baseDelay * Math.pow(2, attempt);
-            console.log(
-              `Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`
-            );
-            await new Promise((resolve) => setTimeout(resolve, delay));
-          }
-        }
-      };
-
-      // Expose to global scope for testing
-      window.retryWithBackoff = retryWithBackoff;
-
-      // Enhanced error handler
-      const handleFirebaseError = (error, operation) => {
-        console.error(`Firebase ${operation} error:`, error);
-
-        let userMessage = `Fout bij ${operation}`;
-        if (error.code === "PERMISSION_DENIED") {
-          userMessage = `Geen toegang voor ${operation}`;
-        } else if (
-          error.code === "NETWORK_ERROR" ||
-          error.message?.includes("network")
-        ) {
-          userMessage = `Netwerkfout bij ${operation}`;
-        }
-
-        showToast(userMessage, "error");
-      };
-
-      const getWeekNumber = (date) => {
-        const target = new Date(date.valueOf());
-        const dayNr = (date.getDay() + MONDAY_OFFSET) % DAYS_IN_WEEK;
-        target.setDate(target.getDate() - dayNr + THURSDAY_OFFSET);
-        const jan4 = new Date(target.getFullYear(), 0, JAN_4TH);
-        const dayDiff = (target - jan4) / MS_PER_DAY;
-        return 1 + Math.ceil(dayDiff / DAYS_IN_WEEK);
-      };
-
-      const getWeekDateRange = (weekNum, year) => {
-        const jan4 = new Date(year, 0, JAN_4TH);
-        const jan4Day = jan4.getDay() || DAYS_IN_WEEK;
-        const week1Monday = new Date(jan4);
-        week1Monday.setDate(jan4.getDate() - jan4Day + 1);
-
-        const monday = new Date(week1Monday);
-        monday.setDate(week1Monday.getDate() + (weekNum - 1) * DAYS_IN_WEEK);
-
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + MONDAY_OFFSET);
-
-        const formatDate = (date) => {
-          return `${date.getDate()}/${date.getMonth() + 1}`;
-        };
-
-        return `${formatDate(monday)} - ${formatDate(sunday)}`;
-      };
-
-      const getNextSunday = () => {
-        const now = new Date();
-        const dayOfWeek = now.getDay();
-        const daysUntilSunday =
-          dayOfWeek === SUNDAY ? 0 : DAYS_IN_WEEK - dayOfWeek;
-        const sunday = new Date(now);
-        sunday.setDate(now.getDate() + daysUntilSunday);
-        sunday.setHours(
-          END_OF_DAY_HOUR,
-          END_OF_DAY_MINUTE,
-          END_OF_DAY_SECOND,
-          END_OF_DAY_MS
-        );
-        return sunday;
-      };
-
-      const getNextSundayFormatted = () => {
-        const sunday = getNextSunday();
-        return sunday.toLocaleDateString("nl-NL", {
-          day: "numeric",
-          month: "long",
-        });
-      };
-
-      const getTimeUntilDeadline = () => {
-        const now = new Date();
-        const sunday = getNextSunday();
-        const diff = sunday - now;
-
-        const days = Math.floor(diff / MS_PER_DAY);
-        const hours = Math.floor((diff % MS_PER_DAY) / MS_PER_HOUR);
-
-        if (days >= 2) {
-          return `${days} dagen`;
-        } else if (days === 1) {
-          return `1 dag`;
-        } else if (hours > 0) {
-          return `${hours} uur`;
-        } else {
-          return "Bijna voorbij!";
-        }
-      };
-
-      const formatTimestamp = (timestamp) => {
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diff = now - date;
-        const minutes = Math.floor(diff / MS_PER_MINUTE);
-        const hours = Math.floor(diff / MS_PER_HOUR);
-        const days = Math.floor(diff / MS_PER_DAY);
-
-        if (minutes < 1) return "Zojuist";
-        if (minutes < MINUTES_PER_HOUR) return `${minutes} min geleden`;
-        if (hours < HOURS_PER_DAY) return `${hours} uur geleden`;
-        if (days < DAYS_PER_WEEK)
-          return `${days} dag${days !== 1 ? "en" : ""} geleden`;
-
-        return date.toLocaleDateString("nl-NL", {
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const el = document.createElement("div");
+        el.id = id;
+        el.className = `fixed bottom-4 right-4 ${bg} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+        el.innerHTML = `<div class="flex items-center gap-3"><span>${msg}</span><button onclick="this.parentElement.parentElement.remove()" class="hover:bg-white hover:bg-opacity-20 rounded p-1">✕</button></div>`;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 5000);
       };
 
       // ============================================================================
-      // 🧩 SECTION: Sub-Components
+      // COMPONENTS
       // ============================================================================
 
-      // Error Boundary for graceful error handling
-      class ErrorBoundary extends React.Component {
-        constructor(props) {
-          super(props);
-          this.state = { hasError: false, error: null };
-        }
+      const UserPicker = ({ people, onSelect }) => {
+        const [showInstallGuide, setShowInstallGuide] = useState(false);
 
-        static getDerivedStateFromError(error) {
-          return { hasError: true, error };
-        }
-
-        componentDidCatch(error, errorInfo) {
-          console.error("Error caught by boundary:", error, errorInfo);
-          showToast("Er is een onverwachte fout opgetreden", "error");
-        }
-
-        render() {
-          if (this.state.hasError) {
-            return (
-              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md">
-                  <div className="text-center">
-                    <div className="text-6xl mb-4">⚠️</div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-3">
-                      Er ging iets mis
-                    </h2>
-                    <p className="text-gray-600 mb-6">
-                      Er is een onverwachte fout opgetreden. Probeer de pagina
-                      te vernieuwen.
-                    </p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                    >
-                      Pagina Vernieuwen
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          return this.props.children;
-        }
-      }
-
-      // Expose to global scope for testing
-      window.ErrorBoundary = ErrorBoundary;
-
-      const ConfirmDialog = ({
-        isOpen,
-        title,
-        message,
-        onConfirm,
-        onCancel,
-      }) => {
-        if (!isOpen) return null;
-
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className={`${CARD_LARGE} p-6 max-w-sm w-full`}>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>
-              <p className="text-gray-600 mb-6">{message}</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={onCancel}
-                  className={`flex-1 ${BUTTON_SECONDARY}`}
-                >
-                  Annuleren
-                </button>
-                <button
-                  onClick={onConfirm}
-                  className={`flex-1 ${BUTTON_DANGER}`}
-                >
-                  Verwijderen
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      const DishwasherConfirmDialog = ({ isOpen, onConfirm, onCancel }) => {
-        if (!isOpen) return null;
-
-        return (
-          <>
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 z-40"
-              onClick={onCancel}
-            />
-            <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full transform scale-100 animate-fadeIn">
-                <div className="text-center mb-6">
-                  <div className="text-6xl mb-4">🍽️</div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4 leading-tight">
-                    Is de vaat op het aanrecht ook ingeruimd?
-                  </h3>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={onCancel}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl font-medium transition-colors"
-                  >
-                    Nee, annuleer
-                  </button>
-                  <button
-                    onClick={onConfirm}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white p-3 rounded-xl font-medium transition-colors"
-                  >
-                    Ja, bevestig
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
-        );
-      };
-
-      const UserPicker = ({
-        people,
-        onSelectUser,
-        showInstallGuide,
-        setShowInstallGuide,
-      }) => {
         const isStandalone =
           window.matchMedia("(display-mode: standalone)").matches ||
           window.navigator.standalone;
@@ -683,13 +269,13 @@
                   Wie ben jij?
                 </h2>
                 <p className="text-gray-600 text-center mb-6">
-                  Selecteer je naam om te beginnen
+                  Selecteer je naam
                 </p>
                 <div className="space-y-3">
                   {people.map((name) => (
                     <button
                       key={name}
-                      onClick={() => onSelectUser(name)}
+                      onClick={() => onSelect(name)}
                       className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all font-medium text-gray-700 hover:text-blue-700"
                     >
                       {name}
@@ -709,502 +295,560 @@
                   </span>
                 </button>
               )}
-            </div>
 
-            {/* Install Guide Modal */}
-            {showInstallGuide && (
-              <>
-                <div
-                  className="fixed inset-0 bg-black bg-opacity-50 z-40"
-                  onClick={() => setShowInstallGuide(false)}
-                />
-
-                <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-                  <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full max-h-[90vh] overflow-y-auto">
-                    <div className="flex justify-between items-start mb-4">
-                      <h2 className="text-xl font-bold text-gray-800">
-                        Installeer op beginscherm
-                      </h2>
-                      <button
-                        onClick={() => setShowInstallGuide(false)}
-                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <X size={20} />
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                        <p className="text-sm text-blue-800 font-medium mb-1">
-                          iOS Safari instructies:
-                        </p>
-                        <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside">
-                          <li>
-                            Tik op het <strong>"Deel"</strong> icoontje onderaan
-                            (vierkant met pijl omhoog)
-                          </li>
-                          <li>
-                            Scroll naar beneden en kies{" "}
-                            <strong>"Zet op beginscherm"</strong>
-                          </li>
-                          <li>
-                            Tik op <strong>"Voeg toe"</strong>
-                          </li>
-                        </ol>
-                      </div>
-
-                      <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-                        <p className="text-sm text-green-800 font-medium mb-1">
-                          Android Chrome instructies:
-                        </p>
-                        <ol className="text-sm text-green-700 space-y-2 list-decimal list-inside">
-                          <li>
-                            Tik op het <strong>menu</strong> icoontje (3 puntjes
-                            rechtsboven)
-                          </li>
-                          <li>
-                            Selecteer{" "}
-                            <strong>"Toevoegen aan startscherm"</strong>
-                          </li>
-                          <li>
-                            Tik op <strong>"Toevoegen"</strong>
-                          </li>
-                        </ol>
-                      </div>
-
-                      <div className="text-center pt-2">
+              {/* Install Guide Modal */}
+              {showInstallGuide && (
+                <>
+                  <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-40"
+                    onClick={() => setShowInstallGuide(false)}
+                  />
+                  <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full max-h-[90vh] overflow-y-auto animate-fadeIn">
+                      <div className="flex justify-between items-start mb-4">
+                        <h2 className="text-xl font-bold text-gray-800">
+                          Installeer op beginscherm
+                        </h2>
                         <button
                           onClick={() => setShowInstallGuide(false)}
-                          className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl font-medium transition-colors"
+                          className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                         >
-                          Begrepen
+                          <Icons.X size={20} />
                         </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                          <p className="text-sm text-blue-800 font-medium mb-1">
+                            iOS Safari instructies:
+                          </p>
+                          <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside">
+                            <li>
+                              Tik op het <strong>"Deel"</strong> icoontje
+                              onderaan (vierkant met pijl omhoog)
+                            </li>
+                            <li>
+                              Scroll naar beneden en kies{" "}
+                              <strong>"Zet op beginscherm"</strong>
+                            </li>
+                            <li>
+                              Tik op <strong>"Voeg toe"</strong>
+                            </li>
+                          </ol>
+                        </div>
+
+                        <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                          <p className="text-sm text-green-800 font-medium mb-1">
+                            Android Chrome instructies:
+                          </p>
+                          <ol className="text-sm text-green-700 space-y-2 list-decimal list-inside">
+                            <li>
+                              Tik op het <strong>menu</strong> icoontje (3
+                              puntjes rechtsboven)
+                            </li>
+                            <li>
+                              Selecteer{" "}
+                              <strong>"Toevoegen aan startscherm"</strong>
+                            </li>
+                            <li>
+                              Tik op <strong>"Toevoegen"</strong>
+                            </li>
+                          </ol>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            onClick={() => setShowInstallGuide(false)}
+                            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl font-medium transition-colors"
+                          >
+                            Begrepen
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         );
       };
 
-      const LoadingView = () => (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-4xl mb-4">🦢</div>
-            <div className="text-gray-600">Laden...</div>
-          </div>
-        </div>
-      );
-
-      const TrackerView = ({
-        currentUser,
-        setShowUserPicker,
-        trackedWeek,
-        currentYear,
-        currentCalendarWeek,
-        taskDefinitions,
-        tasks,
-        assignments,
-        completedCount,
-        timeUntilDeadline,
-        toggleTask,
-        setCurrentView,
-        allComplete,
-        dishwasherLogs,
-        dishwasherPoints,
-        canEmptyDishwasherToday,
-        getDishwasherCountThisWeek,
-        getLastDishwasherLog,
-        handleDishwasherClick,
-      }) => (
-        <div>
-          {/* User indicator */}
-          <div className="bg-white rounded-xl shadow-md p-3 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-semibold text-sm">
-                {currentUser.charAt(0)}
-              </div>
-              <span className="text-sm text-gray-600">
-                Ingelogd als{" "}
-                <span className="font-semibold text-gray-800">
-                  {currentUser}
-                </span>
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                localStorage.removeItem("currentUser");
-                setShowUserPicker(true);
-              }}
-              className="text-xs text-blue-600 hover:text-blue-700"
-            >
-              Wissel
-            </button>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                  Schone Zwaan
-                </h1>
-                <p className="text-gray-600">
-                  Week {trackedWeek} •{" "}
-                  {getWeekDateRange(trackedWeek, currentYear)}
-                </p>
-                {(() => {
-                  if (trackedWeek < currentCalendarWeek) {
-                    return (
-                      <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">
-                        📅 Verleden week
-                      </span>
-                    );
-                  } else if (trackedWeek > currentCalendarWeek) {
-                    return (
-                      <span className="inline-block mt-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
-                        ⏳ Toekomstige week
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCurrentView("stats")}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Leaderboard"
-                >
-                  <Trophy size={20} className="text-gray-600" />
-                </button>
-                <button
-                  onClick={() => setCurrentView("activity")}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Activiteit"
-                >
-                  <Activity size={20} className="text-gray-600" />
-                </button>
-                <button
-                  onClick={() => setCurrentView("history")}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Geschiedenis"
-                >
-                  <History size={20} className="text-gray-600" />
-                </button>
-                <button
-                  onClick={() => setCurrentView("edit")}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Aanpassen"
-                >
-                  <Settings size={20} className="text-gray-600" />
-                </button>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${
-                      taskDefinitions.length > 0
-                        ? (completedCount / taskDefinitions.length) * 100
-                        : 0
-                    }%`,
-                  }}
-                />
-              </div>
-              <span className="text-sm font-medium text-gray-700">
-                {completedCount}/{taskDefinitions.length}
-              </span>
-            </div>
-          </div>
-
-          {/* Deadline Banner */}
-          <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-500 rounded-lg p-4 mb-4 flex items-center gap-3">
-            <Clock size={24} className="text-orange-600" />
-            <div className="flex-1">
-              <div className="font-semibold text-gray-800">
-                Deadline: Zondag {getNextSundayFormatted()}
-              </div>
-              <div className="text-sm text-gray-600">
-                {timeUntilDeadline} resterend
-              </div>
-            </div>
-          </div>
-
-          {/* Dishwasher Bonus Card */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 mb-4 shadow-md">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="text-3xl">🍽️</div>
-                <div>
-                  <div className="font-bold text-gray-800">
-                    Bonus: Vaatwasser
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    +{dishwasherPoints} punten per keer
-                  </div>
+      const ConfirmDialog = ({
+        isOpen,
+        title,
+        message,
+        onConfirm,
+        onCancel,
+        confirmText = "Bevestig",
+        cancelText = "Annuleer",
+      }) => {
+        if (!isOpen) return null;
+        return (
+          <>
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 z-40"
+              onClick={onCancel}
+            />
+            <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fadeIn">
+                <h3 className="text-xl font-bold text-gray-800 mb-2">
+                  {title}
+                </h3>
+                <p className="text-gray-600 mb-6">{message}</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={onCancel}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl font-medium transition-colors"
+                  >
+                    {cancelText}
+                  </button>
+                  <button
+                    onClick={onConfirm}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-xl font-medium transition-colors"
+                  >
+                    {confirmText}
+                  </button>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-green-700">
-                  {getDishwasherCountThisWeek()}x
-                </div>
-                <div className="text-xs text-gray-600">deze week</div>
-              </div>
             </div>
+          </>
+        );
+      };
 
-            <button
-              onClick={handleDishwasherClick}
-              disabled={!canEmptyDishwasherToday()}
-              className={`w-full p-3 rounded-lg font-semibold transition-all ${
-                canEmptyDishwasherToday()
-                  ? "bg-blue-500 hover:bg-blue-600 text-white shadow-md active:scale-95"
-                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              {canEmptyDishwasherToday()
-                ? "🍽️ Vaatwasser geleegd?"
-                : trackedWeek < currentCalendarWeek
-                ? "🔒 Verleden week"
-                : "✓ Al Gedaan Vandaag"}
-            </button>
+      // ============================================================================
+      // MAIN APP
+      // ============================================================================
 
-            {!canEmptyDishwasherToday() && getLastDishwasherLog() && (
-              <div className="text-xs text-gray-500 text-center mt-2">
-                Laatst: {formatTimestamp(getLastDishwasherLog().timestamp)} door{" "}
-                {getLastDishwasherLog().user}
-              </div>
-            )}
-          </div>
+      function App() {
+        const [user, setUser] = useState(
+          localStorage.getItem("currentUser") || ""
+        );
+        const [view, setView] = useState("tracker");
 
-          <div className="space-y-3 mb-4">
-            {taskDefinitions.map((taskDef) => {
-              const isPastWeek = trackedWeek < currentCalendarWeek;
-              const isFutureWeek = trackedWeek > currentCalendarWeek;
-              const isCompleted = tasks[taskDef.id];
+        // Firebase state
+        const [config, setConfig] = useState(null);
+        const [currentTasks, setCurrentTasks] = useState({});
+        const [lastTasks, setLastTasks] = useState({});
+        const [leaderboard, setLeaderboard] = useState({});
+        const [dishwasherLogs, setDishwasherLogs] = useState([]);
+        const [activity, setActivity] = useState([]);
 
-              // Determine button style based on week status
-              let buttonClass = "";
-              let isDisabled = false;
+        // UI state
+        const [showDishwasherConfirm, setShowDishwasherConfirm] =
+          useState(false);
+        const [loading, setLoading] = useState(true);
 
-              if (isFutureWeek) {
-                // Future week - grayed out, disabled
-                buttonClass = "bg-gray-200 text-gray-400 cursor-not-allowed";
-                isDisabled = true;
-              } else if (isPastWeek) {
-                if (isCompleted) {
-                  // Past week, completed - yellow (late completion)
-                  buttonClass = "bg-yellow-500 text-white";
-                  isDisabled = true; // Can't uncheck
-                } else {
-                  // Past week, not completed - can still check
-                  buttonClass =
-                    "bg-white text-gray-800 hover:shadow-lg border-2 border-orange-300";
+        const now = new Date();
+        const currentWeek = getWeekNumber(now);
+        const currentYear = now.getFullYear();
+
+        // ============================================================================
+        // FIREBASE SYNC
+        // ============================================================================
+
+        useEffect(() => {
+          const refs = {
+            config: db.ref("config"),
+            currentTasks: db.ref("currentWeekTasks"),
+            lastTasks: db.ref("lastWeekTasks"),
+            leaderboard: db.ref("leaderboard"),
+            dishwasher: db.ref("dishwasherLogs"),
+            activity: db.ref("activity"),
+          };
+
+          refs.config.on("value", (snap) => {
+            const data = snap.val();
+            if (data) {
+              // Ensure all required fields exist
+              setConfig({
+                currentWeek: data.currentWeek || currentWeek,
+                lastWeek: data.lastWeek || null,
+                people: data.people || [],
+                tasks: data.tasks || [],
+                rotationOffsets: data.rotationOffsets || {},
+                dishwasherPoints: data.dishwasherPoints || 0.25,
+              });
+            } else {
+              // Initialize default config if nothing exists
+              const defaultConfig = {
+                currentWeek: currentWeek,
+                lastWeek: null,
+                people: ["Sam", "Roel", "Stijn", "Tom", "Maxim"],
+                tasks: [
+                  {
+                    id: "woonkamer",
+                    name: "Woonkamer",
+                    assignedPeople: ["Roel", "Stijn"],
+                    points: 1.0,
+                  },
+                  {
+                    id: "keuken",
+                    name: "Keuken",
+                    assignedPeople: ["Tom", "Maxim"],
+                    points: 1.0,
+                  },
+                  {
+                    id: "vuilnis",
+                    name: "Doeken/Vuilnis",
+                    assignedPeople: ["Sam"],
+                    points: 1.0,
+                  },
+                ],
+                rotationOffsets: {},
+                dishwasherPoints: 0.25,
+              };
+              setConfig(defaultConfig);
+              db.ref("config").set(defaultConfig);
+            }
+          });
+
+          refs.currentTasks.on("value", (snap) =>
+            setCurrentTasks(snap.val() || {})
+          );
+          refs.lastTasks.on("value", (snap) => setLastTasks(snap.val() || {}));
+          refs.leaderboard.on("value", (snap) =>
+            setLeaderboard(snap.val() || {})
+          );
+          refs.dishwasher.on("value", (snap) =>
+            setDishwasherLogs(snap.val() || [])
+          );
+          refs.activity.on("value", (snap) => setActivity(snap.val() || []));
+
+          setLoading(false);
+
+          return () => Object.values(refs).forEach((ref) => ref.off());
+        }, []);
+
+        // ============================================================================
+        // WEEK TRANSITION LOGIC
+        // ============================================================================
+
+        useEffect(() => {
+          if (!config || loading) return;
+
+          const needsTransition = config.currentWeek < currentWeek;
+
+          if (needsTransition) {
+            console.log("🔄 Week transition detected", {
+              from: config.currentWeek,
+              to: currentWeek,
+            });
+            handleWeekTransition();
+          }
+        }, [config, currentWeek, loading]);
+
+        const handleWeekTransition = async () => {
+          try {
+            // 1. Calculate dishwasher points for completed week (tasks already counted in real-time)
+            const weekPoints = {};
+            config.people.forEach((person) => {
+              weekPoints[person] = { dishwasher: 0 };
+            });
+
+            // ONLY add dishwasher points (task points already added in real-time)
+            dishwasherLogs
+              .filter((log) => log.weekNumber === config.currentWeek)
+              .forEach((log) => {
+                if (weekPoints[log.user]) {
+                  weekPoints[log.user].dishwasher += log.points;
                 }
-              } else {
-                // Current week - normal behavior
-                buttonClass = isCompleted
-                  ? "bg-green-500 text-white"
-                  : "bg-white text-gray-800 hover:shadow-lg";
+              });
+
+            // 2. Update cumulative leaderboard (only dishwasher, tasks already counted)
+            const newLeaderboard = { ...leaderboard };
+            Object.entries(weekPoints).forEach(([person, points]) => {
+              if (!newLeaderboard[person]) {
+                newLeaderboard[person] = {
+                  totalPoints: 0,
+                  onTimePoints: 0,
+                  latePoints: 0,
+                  dishwasherPoints: 0,
+                  dishwasherCount: 0,
+                };
               }
+              // Only add dishwasher points - task points were already added in real-time
+              newLeaderboard[person].dishwasherPoints += points.dishwasher;
+              newLeaderboard[person].totalPoints += points.dishwasher;
+            });
 
-              return (
-                <button
-                  key={taskDef.id}
-                  onClick={() => toggleTask(taskDef.id)}
-                  disabled={isDisabled}
-                  className={`w-full p-5 rounded-xl shadow-md transition-all transform active:scale-98 ${buttonClass}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="text-left">
-                      <div className="font-semibold text-lg capitalize">
-                        {taskDef.name}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-sm ${
-                            isPastWeek && isCompleted
-                              ? "text-yellow-100"
-                              : isCompleted
-                              ? "text-green-100"
-                              : "text-gray-600"
-                          }`}
-                        >
-                          {assignments[taskDef.id]}
-                          {isPastWeek && isCompleted && " • Te laat voltooid"}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            isPastWeek && isCompleted
-                              ? "bg-yellow-200 text-yellow-800"
-                              : isCompleted
-                              ? "bg-green-200 text-green-800"
-                              : "bg-blue-100 text-blue-700"
-                          }`}
-                        >
-                          {taskDef.points || 1.0} pt
-                        </span>
-                      </div>
-                    </div>
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        isCompleted
-                          ? "bg-white"
-                          : isFutureWeek
-                          ? "bg-gray-300"
-                          : "bg-gray-200"
-                      }`}
-                    >
-                      {isCompleted && (
-                        <Check
-                          size={20}
-                          className={
-                            isPastWeek ? "text-yellow-500" : "text-green-500"
-                          }
-                        />
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+            // Count dishwasher logs
+            config.people.forEach((person) => {
+              const count = dishwasherLogs.filter(
+                (log) => log.user === person
+              ).length;
+              if (newLeaderboard[person]) {
+                newLeaderboard[person].dishwasherCount = count;
+              }
+            });
 
-          {taskDefinitions.length === 0 && (
-            <div className="bg-white rounded-xl shadow-md p-8 text-center text-gray-500">
-              <p className="mb-4">Geen taken geconfigureerd</p>
-              <button
-                onClick={() => setCurrentView("edit")}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                Taken Toevoegen
-              </button>
-            </div>
-          )}
+            // 3. Move current tasks to last week
+            await db.ref("lastWeekTasks").set(currentTasks);
 
-          {taskDefinitions.length > 0 && (
-            <div className="space-y-2">
-              {(() => {
-                const isPastWeek = trackedWeek < currentCalendarWeek;
-                const isFutureWeek = trackedWeek > currentCalendarWeek;
+            // 4. Clear current tasks
+            const emptyTasks = {};
+            config.tasks.forEach((task) => {
+              emptyTasks[task.id] = false;
+            });
+            await db.ref("currentWeekTasks").set(emptyTasks);
 
-                if (isPastWeek) {
-                  return (
-                    <div className="bg-gray-100 border-2 border-gray-300 text-gray-600 p-4 rounded-xl text-center">
-                      <div className="font-semibold mb-1">
-                        📅 Week Automatisch Gearchiveerd
-                      </div>
-                      <div className="text-sm">
-                        Deze week is afgelopen en opgeslagen in geschiedenis
-                      </div>
-                    </div>
-                  );
+            // 5. Update config
+            await db.ref("config").update({
+              currentWeek: currentWeek,
+              lastWeek: config.currentWeek,
+            });
+
+            // 6. Save leaderboard
+            await db.ref("leaderboard").set(newLeaderboard);
+
+            // 7. Log activity
+            logActivity(
+              "systeem",
+              "week automatisch overgegaan",
+              `Week ${config.currentWeek} → ${currentWeek}`,
+              true
+            );
+
+            console.log("✅ Week transition complete");
+          } catch (error) {
+            console.error("❌ Week transition error:", error);
+            toast("Fout bij week overgang");
+          }
+        };
+
+        // ============================================================================
+        // HELPER FUNCTIONS
+        // ============================================================================
+
+        const getAssignment = (task, week) => {
+          if (!task || !task.assignedPeople) return null;
+          const assigned = task.assignedPeople;
+          if (assigned.length === 0) return null;
+          if (assigned.length === 1) return assigned[0];
+          const offset = config.rotationOffsets?.[task.id] || 0;
+          const index = (week - 1 + offset) % assigned.length;
+          return assigned[index];
+        };
+
+        const logActivity = async (user, action, task, status) => {
+          const newActivity = [
+            {
+              user,
+              action,
+              task,
+              status,
+              timestamp: Date.now(),
+              weekNumber: config.currentWeek,
+            },
+            ...activity,
+          ].slice(0, ACTIVITY_LIMIT);
+          await db.ref("activity").set(newActivity);
+        };
+
+        const toggleTask = async (taskId, isLastWeek = false) => {
+          const tasks = isLastWeek ? lastTasks : currentTasks;
+          const newStatus = !tasks[taskId];
+          const newTasks = { ...tasks, [taskId]: newStatus };
+
+          const ref = isLastWeek ? "lastWeekTasks" : "currentWeekTasks";
+          await db.ref(ref).set(newTasks);
+
+          const task = config.tasks.find((t) => t.id === taskId);
+          const taskName = task?.name || taskId;
+
+          // Handle late completion
+          if (isLastWeek && newStatus) {
+            const assignment = getAssignment(task, config.lastWeek);
+            if (assignment && leaderboard[assignment]) {
+              const latePoints = (task.points || 1.0) * 0.5;
+              await db.ref(`leaderboard/${assignment}`).update({
+                latePoints:
+                  (leaderboard[assignment].latePoints || 0) + latePoints,
+                totalPoints: leaderboard[assignment].totalPoints + latePoints,
+              });
+            }
+            logActivity(user, "afgevinkt (te laat)", taskName, true);
+          } else {
+            // REAL-TIME LEADERBOARD UPDATE for current week tasks
+            if (!isLastWeek) {
+              const assignment = getAssignment(task, config.currentWeek);
+              if (assignment) {
+                const newLeaderboard = { ...leaderboard };
+                if (!newLeaderboard[assignment]) {
+                  newLeaderboard[assignment] = {
+                    totalPoints: 0,
+                    onTimePoints: 0,
+                    latePoints: 0,
+                    dishwasherPoints: 0,
+                    dishwasherCount: 0,
+                  };
                 }
 
-                if (isFutureWeek) {
-                  return (
-                    <div className="bg-blue-50 border-2 border-blue-200 text-blue-700 p-4 rounded-xl text-center">
-                      <div className="font-semibold mb-1">
-                        ⏳ Toekomstige Week
-                      </div>
-                      <div className="text-sm">
-                        Deze week is nog niet begonnen
-                      </div>
-                    </div>
-                  );
-                }
+                const pointChange = (task.points || 1.0) * (newStatus ? 1 : -1);
+                newLeaderboard[assignment].onTimePoints += pointChange;
+                newLeaderboard[assignment].totalPoints += pointChange;
 
-                // Current week - show status only
-                return (
-                  <div
-                    className={`p-4 rounded-xl text-center border-2 ${
-                      allComplete
-                        ? "bg-green-50 border-green-300 text-green-800"
-                        : "bg-blue-50 border-blue-300 text-blue-800"
-                    }`}
-                  >
-                    <div className="font-semibold mb-1">
-                      {allComplete
-                        ? "✅ Alle Taken Voltooid!"
-                        : "📝 Week Loopt"}
-                    </div>
-                    <div className="text-sm">
-                      {allComplete
-                        ? "Perfect! Deze week wordt automatisch opgeslagen na zondag"
-                        : `${completedCount}/${taskDefinitions.length} taken voltooid • Wordt automatisch gearchiveerd na zondag`}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </div>
-      );
+                await db.ref("leaderboard").set(newLeaderboard);
+              }
+            }
 
-      const ActivityView = ({ activityLog, setCurrentView }) => (
-        <div>
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setCurrentView("tracker")}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                  📊 Activiteit
-                </h1>
-                <p className="text-gray-600">Recente activiteiten</p>
+            logActivity(
+              user,
+              newStatus ? "afgevinkt" : "uitgevinkt",
+              taskName,
+              newStatus
+            );
+          }
+        };
+
+        const canEmptyDishwasher = () => {
+          const today = now.toDateString();
+          return !dishwasherLogs.some(
+            (log) =>
+              new Date(log.timestamp).toDateString() === today &&
+              log.weekNumber === config.currentWeek
+          );
+        };
+
+        const confirmDishwasher = async () => {
+          const newLog = {
+            user,
+            timestamp: now.getTime(),
+            weekNumber: config.currentWeek,
+            points: config.dishwasherPoints || 0.25,
+          };
+
+          // Add to logs
+          await db.ref("dishwasherLogs").set([...dishwasherLogs, newLog]);
+
+          // Update leaderboard immediately
+          const newLeaderboard = { ...leaderboard };
+          if (!newLeaderboard[user]) {
+            newLeaderboard[user] = {
+              totalPoints: 0,
+              onTimePoints: 0,
+              latePoints: 0,
+              dishwasherPoints: 0,
+              dishwasherCount: 0,
+            };
+          }
+
+          newLeaderboard[user].dishwasherPoints += config.dishwasherPoints;
+          newLeaderboard[user].totalPoints += config.dishwasherPoints;
+          newLeaderboard[user].dishwasherCount =
+            dishwasherLogs.filter((log) => log.user === user).length + 1;
+
+          await db.ref("leaderboard").set(newLeaderboard);
+
+          logActivity(
+            user,
+            "leegde vaatwasser",
+            `+${config.dishwasherPoints} punten`,
+            true
+          );
+          setShowDishwasherConfirm(false);
+        };
+
+        // ============================================================================
+        // RENDER
+        // ============================================================================
+
+        if (!user && config) {
+          return (
+            <UserPicker
+              people={config.people}
+              onSelect={(name) => {
+                setUser(name);
+                localStorage.setItem("currentUser", name);
+              }}
+            />
+          );
+        }
+
+        if (loading || !config) {
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-4xl mb-4">🦢</div>
+                <div className="text-gray-600">Laden...</div>
               </div>
             </div>
-          </div>
+          );
+        }
 
-          {activityLog.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-md p-8 text-center text-gray-500">
-              <Activity size={48} className="mx-auto mb-3 opacity-30" />
-              <p>Nog geen activiteiten</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {activityLog
-                .filter(
-                  (activity) => activity.action !== "automatisch gearchiveerd"
-                )
-                .map((activity, index) => (
-                  <div
-                    key={index}
-                    className="bg-white rounded-xl shadow-md p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">
-                        {activity.user.charAt(0)}
+        const viewingLastWeek = view === "lastWeek";
+        const tasks = viewingLastWeek ? lastTasks : currentTasks;
+        const weekNumber = viewingLastWeek
+          ? config.lastWeek
+          : config.currentWeek;
+        const isEditable =
+          !viewingLastWeek || currentWeek - config.lastWeek <= 1;
+
+        const completedCount =
+          Object.values(currentTasks).filter(Boolean).length;
+        const totalTasks = config.tasks.length;
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pb-8">
+            <div className="max-w-md mx-auto">
+              {/* USER INDICATOR */}
+              <div className="bg-white rounded-xl shadow-md p-3 mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-semibold text-sm">
+                    {user.charAt(0)}
+                  </div>
+                  <span className="text-sm text-gray-600">
+                    <span className="font-semibold text-gray-800">{user}</span>
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("currentUser");
+                    setUser("");
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700"
+                >
+                  Wissel
+                </button>
+              </div>
+
+              {/* TRACKER VIEW */}
+              {view === "tracker" && (
+                <>
+                  {/* HEADER */}
+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h1 className="text-2xl font-bold text-gray-800">
+                          Schone Zwaan
+                        </h1>
+                        <p className="text-gray-600">
+                          Week {config.currentWeek} •{" "}
+                          {getWeekDateRange(config.currentWeek, currentYear)}
+                        </p>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm">
-                          <span className="font-semibold text-gray-800">
-                            {activity.user}
-                          </span>
-                          <span className="text-gray-600">
-                            {" "}
-                            {activity.action}{" "}
-                          </span>
-                          <span className="font-medium text-gray-800">
-                            {activity.task}
-                          </span>
-                          {activity.weekNumber && (
-                            <span className="text-gray-500">
-                              {" "}
-                              • Week {activity.weekNumber}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {formatTimestamp(activity.timestamp)}
-                        </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setView("leaderboard")}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Leaderboard"
+                        >
+                          <Icons.Trophy size={20} className="text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => setView("activity")}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Activiteit"
+                        >
+                          <Icons.Activity size={20} className="text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => setView("settings")}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Instellingen"
+                        >
+                          <Icons.Settings size={20} className="text-gray-600" />
+                        </button>
                       </div>
                       {activity.status !== undefined && (
                         <div
@@ -1220,379 +864,546 @@
                         </div>
                       )}
                     </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      );
-
-      const HistoryView = ({
-        history,
-        taskDefinitions,
-        setCurrentView,
-        showClearConfirm,
-        setShowClearConfirm,
-        clearHistory,
-      }) => {
-        // Filter history to only show week 40 onwards from 2025, and all weeks from 2026+
-        const STARTING_YEAR = 2025;
-        const STARTING_WEEK = 40;
-        const filteredHistory = history.filter((week) => {
-          if (week.year > STARTING_YEAR) return true; // All weeks from 2026+
-          if (week.year === STARTING_YEAR)
-            return week.weekNumber >= STARTING_WEEK; // Week 40+ from 2025
-          return false; // Before 2025
-        });
-
-        return (
-          <div>
-            <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setCurrentView("tracker")}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-800">
-                      📜 Geschiedenis
-                    </h1>
-                    <p className="text-gray-600">
-                      {filteredHistory.length} voltooide weken
-                    </p>
-                  </div>
-                </div>
-                {filteredHistory.length > 0 && (
-                  <button
-                    onClick={() => setShowClearConfirm(true)}
-                    className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
-                    title="Wis geschiedenis"
-                  >
-                    <X size={20} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <ConfirmDialog
-              isOpen={showClearConfirm}
-              title="Geschiedenis Wissen?"
-              message={`Weet je zeker dat je alle ${
-                filteredHistory.length
-              } week${
-                filteredHistory.length !== 1 ? "en" : ""
-              } wilt wissen? Dit kan niet ongedaan worden.`}
-              onConfirm={clearHistory}
-              onCancel={() => setShowClearConfirm(false)}
-            />
-
-            {filteredHistory.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-md p-8 text-center text-gray-500">
-                <History size={48} className="mx-auto mb-3 opacity-30" />
-                <p>Nog geen voltooide weken</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredHistory.map((week, index) => {
-                  const allTasksComplete = Object.values(week.tasks).every(
-                    Boolean
-                  );
-                  const completedTaskCount = Object.values(week.tasks).filter(
-                    Boolean
-                  ).length;
-
-                  return (
-                    <div
-                      key={index}
-                      className="bg-white rounded-xl shadow-md p-5"
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="font-semibold text-gray-800">
-                            Week {week.weekNumber}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {week.dateRange}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          {allTasksComplete ? (
-                            <span className="text-green-500 text-sm font-medium flex items-center gap-1">
-                              <Check size={16} /> Compleet
-                            </span>
-                          ) : (
-                            <span className="text-orange-500 text-sm font-medium flex items-center gap-1">
-                              {completedTaskCount}/3 Taken
-                            </span>
-                          )}
-                        </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-green-500 h-2 rounded-full transition-all"
+                          style={{
+                            width: `${
+                              totalTasks > 0
+                                ? (completedCount / totalTasks) * 100
+                                : 0
+                            }%`,
+                          }}
+                        />
                       </div>
-                      <div className="space-y-2">
-                        {Object.entries(week.assignments).map(
-                          ([taskId, person]) => {
-                            const taskDef = taskDefinitions.find(
-                              (t) => t.id === taskId
-                            );
-                            const taskName = taskDef?.name || taskId;
-                            return (
-                              <div
-                                key={taskId}
-                                className="flex items-center justify-between text-sm"
-                              >
-                                <span className="text-gray-600 capitalize">
-                                  {taskName}:
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-gray-800">
-                                    {person}
-                                  </span>
-                                  {week.tasks[taskId] ? (
-                                    <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                                      <Check
-                                        size={16}
-                                        className="text-green-600"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
-                                      <X size={16} className="text-red-600" />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }
-                        )}
+                      <span className="text-sm font-medium text-gray-700">
+                        {completedCount}/{totalTasks}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* DEADLINE BANNER */}
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-500 rounded-lg p-4 mb-4 flex items-center gap-3">
+                    <Icons.Clock size={24} className="text-orange-600" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-800">
+                        Deadline: Zondag{" "}
+                        {(() => {
+                          const sunday = new Date(now);
+                          sunday.setDate(
+                            now.getDate() + ((7 - now.getDay()) % 7)
+                          );
+                          return sunday.toLocaleDateString("nl-NL", {
+                            day: "numeric",
+                            month: "long",
+                          });
+                        })()}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {(() => {
+                          const sunday = new Date(now);
+                          sunday.setDate(
+                            now.getDate() + ((7 - now.getDay()) % 7)
+                          );
+                          sunday.setHours(23, 59, 59, 999);
+                          const diff = sunday - now;
+                          const days = Math.floor(diff / 86400000);
+                          const hours = Math.floor((diff % 86400000) / 3600000);
+                          if (days >= 2) return `${days} dagen`;
+                          if (days === 1) return "1 dag";
+                          if (hours > 0) return `${hours} uur`;
+                          return "Bijna voorbij!";
+                        })()}{" "}
+                        resterend
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      };
+                  </div>
 
-      const StatsView = ({
-        setCurrentView,
-        people,
-        history,
-        activityLog,
-        taskDefinitions,
-        dishwasherLogs,
-      }) => {
-        // Filter history to only show week 40 onwards from 2025, and all weeks from 2026+
-        const STARTING_YEAR = 2025;
-        const STARTING_WEEK = 40;
-        const filteredHistory = history.filter((week) => {
-          if (week.year > STARTING_YEAR) return true; // All weeks from 2026+
-          if (week.year === STARTING_YEAR)
-            return week.weekNumber >= STARTING_WEEK; // Week 40+ from 2025
-          return false; // Before 2025
-        });
+                  {/* LAST WEEK BANNER */}
+                  {config.lastWeek && currentWeek - config.lastWeek <= 1 && (
+                    <button
+                      onClick={() => setView("lastWeek")}
+                      className="w-full bg-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-4 hover:bg-orange-100 transition-colors text-left"
+                    >
+                      <div className="font-semibold text-orange-800">
+                        📅 Vorige Week (Week {config.lastWeek})
+                      </div>
+                      <div className="text-sm text-orange-600">
+                        Klik om late taken af te vinken
+                      </div>
+                    </button>
+                  )}
 
-        // Calculate stats for each person
-        const calculateStats = () => {
-          const stats = {};
-
-          people.forEach((person) => {
-            stats[person] = {
-              totalTasks: 0,
-              completedTasks: 0,
-              onTimeTasks: 0,
-              lateTasks: 0,
-              missedTasks: 0,
-              currentStreak: 0,
-              lastFourWeeks: [],
-              dishwasherPoints: 0,
-            };
-          });
-
-          // Analyze history (sorted newest first)
-          const sortedHistory = [...filteredHistory].sort((a, b) => {
-            if (a.year !== b.year) return b.year - a.year;
-            return b.weekNumber - a.weekNumber;
-          });
-
-          // Get last 4 weeks for chart
-          sortedHistory
-            .slice(0, 4)
-            .reverse()
-            .forEach((week) => {
-              people.forEach((person) => {
-                const personTasks = Object.entries(week.assignments)
-                  .filter(([_, assignedPerson]) => assignedPerson === person)
-                  .map(([taskId]) => ({
-                    taskId,
-                    completed: week.tasks[taskId] || false,
-                  }));
-
-                const completed = personTasks.filter((t) => t.completed).length;
-                const total = personTasks.length;
-
-                stats[person].lastFourWeeks.push({
-                  week: week.weekNumber,
-                  completed,
-                  total,
-                  percentage: total > 0 ? (completed / total) * 100 : 0,
-                });
-              });
-            });
-
-          // Calculate overall stats from all history
-          sortedHistory.forEach((week) => {
-            people.forEach((person) => {
-              const personTasks = Object.entries(week.assignments).filter(
-                ([_, assignedPerson]) => assignedPerson === person
-              );
-
-              personTasks.forEach(([taskId]) => {
-                // Use frozen point values from history, default to 1.0 if not snapshotted
-                const taskPoints = week.taskPoints?.[taskId] || 1.0;
-
-                stats[person].totalTasks += taskPoints;
-
-                if (week.tasks[taskId]) {
-                  stats[person].completedTasks += taskPoints;
-
-                  // Check if task was completed late
-                  const isLate =
-                    week.lateTasks && week.lateTasks.includes(taskId);
-                  if (isLate) {
-                    stats[person].lateTasks += taskPoints * 0.5;
-                  } else {
-                    stats[person].onTimeTasks += taskPoints;
-                  }
-                } else {
-                  stats[person].missedTasks += taskPoints;
-                }
-              });
-            });
-          });
-
-          // Calculate current streak (consecutive weeks with all tasks done)
-          people.forEach((person) => {
-            let streak = 0;
-            for (const week of sortedHistory) {
-              const personTasks = Object.entries(week.assignments).filter(
-                ([_, assignedPerson]) => assignedPerson === person
-              );
-
-              const allCompleted = personTasks.every(
-                ([taskId]) => week.tasks[taskId]
-              );
-
-              if (allCompleted && personTasks.length > 0) {
-                streak++;
-              } else {
-                break;
-              }
-            }
-            stats[person].currentStreak = streak;
-          });
-
-          // Calculate dishwasher bonus points
-          dishwasherLogs.forEach((log) => {
-            if (stats[log.user]) {
-              stats[log.user].dishwasherPoints += log.points;
-            }
-          });
-
-          return stats;
-        };
-
-        const stats = calculateStats();
-
-        // Create leaderboard (sort by points, then by streak)
-        // Scoring: On-time = 1.0x points, Late = 0.5x points, Missed = 0, Dishwasher bonus included
-        const leaderboard = people
-          .map((person) => ({
-            name: person,
-            ...stats[person],
-            points:
-              stats[person].onTimeTasks +
-              stats[person].lateTasks +
-              stats[person].dishwasherPoints,
-            maxPoints: stats[person].totalTasks,
-            completionRate:
-              stats[person].totalTasks > 0
-                ? ((stats[person].onTimeTasks +
-                    stats[person].lateTasks +
-                    stats[person].dishwasherPoints) /
-                    stats[person].totalTasks) *
-                  100
-                : 0,
-          }))
-          .sort((a, b) => {
-            // Sort by points, then by streak
-            if (Math.abs(a.points - b.points) > 0.1) {
-              return b.points - a.points;
-            }
-            return b.currentStreak - a.currentStreak;
-          });
-
-        return (
-          <div>
-            <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setCurrentView("tracker")}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-800">
-                    🏆 Leaderboard
-                  </h1>
-                  <p className="text-gray-600">
-                    Prestaties van {filteredHistory.length} voltooide weken
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Scoring explanation */}
-            {filteredHistory.length > 0 && (
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4 rounded">
-                <p className="text-xs text-blue-800">
-                  <span className="font-semibold">Punten:</span> Op tijd =
-                  taakpunten, Te laat (na deadline) = 50% taakpunten, Vaatwasser
-                  bonus telt ook mee
-                </p>
-              </div>
-            )}
-
-            {leaderboard.length > 0 && (
-              <>
-                {/* Podium for top 3 */}
-                <div className="flex items-end justify-center gap-4 mb-8">
-                  {/* 2nd Place */}
-                  {leaderboard[1] && (
-                    <div className="flex-1 text-center">
-                      <div className="bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl p-6 shadow-lg transform translate-y-8">
-                        <div className="text-5xl mb-2">🦢</div>
-                        <div className="text-4xl font-bold text-gray-700 mb-1">
-                          2
+                  {/* DISHWASHER */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="text-3xl">🍽️</div>
+                        <div>
+                          <div className="font-bold text-gray-800">
+                            Vaatwasser
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            +{config.dishwasherPoints} punten
+                          </div>
                         </div>
-                        <div className="font-bold text-gray-800 text-lg mb-1">
-                          {leaderboard[1].name}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-700">
+                          {
+                            dishwasherLogs.filter(
+                              (l) => l.weekNumber === config.currentWeek
+                            ).length
+                          }
+                          x
                         </div>
-                        <div className="text-2xl font-bold text-gray-700">
-                          {leaderboard[1].points % 1 === 0
-                            ? leaderboard[1].points
-                            : leaderboard[1].points.toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">punten</div>
-                        {leaderboard[1].currentStreak > 0 && (
-                          <div className="mt-2 text-orange-600 font-medium text-sm">
-                            🔥 {leaderboard[1].currentStreak}{" "}
-                            {leaderboard[1].currentStreak === 1
-                              ? "week"
-                              : "weken"}
+                        <div className="text-xs text-gray-600">deze week</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() =>
+                        canEmptyDishwasher() && setShowDishwasherConfirm(true)
+                      }
+                      disabled={!canEmptyDishwasher()}
+                      className={`w-full p-3 rounded-lg font-semibold transition-all ${
+                        canEmptyDishwasher()
+                          ? "bg-blue-500 hover:bg-blue-600 text-white"
+                          : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                      }`}
+                    >
+                      {canEmptyDishwasher()
+                        ? "🍽️ Vaatwasser geleegd?"
+                        : "✓ Al gedaan vandaag"}
+                    </button>
+                  </div>
+
+                  {/* TASKS */}
+                  <div className="space-y-3">
+                    {config.tasks.map((task) => {
+                      const isComplete = currentTasks[task.id];
+                      const assignment = getAssignment(
+                        task,
+                        config.currentWeek
+                      );
+                      return (
+                        <button
+                          key={task.id}
+                          onClick={() => toggleTask(task.id)}
+                          className={`w-full p-5 rounded-xl shadow-md transition-all ${
+                            isComplete
+                              ? "bg-green-500 text-white"
+                              : "bg-white text-gray-800 hover:shadow-lg"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="text-left">
+                              <div className="font-semibold text-lg">
+                                {task.name}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-sm ${
+                                    isComplete
+                                      ? "text-green-100"
+                                      : "text-gray-600"
+                                  }`}
+                                >
+                                  {assignment || "Niemand"}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    isComplete
+                                      ? "bg-green-200 text-green-800"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {task.points || 1.0} pt
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                isComplete ? "bg-white" : "bg-gray-200"
+                              }`}
+                            >
+                              {isComplete && (
+                                <Icons.Check
+                                  size={20}
+                                  className="text-green-500"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* LAST WEEK VIEW */}
+              {view === "lastWeek" && (
+                <>
+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setView("tracker")}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <Icons.ChevronLeft size={20} />
+                      </button>
+                      <div>
+                        <h1 className="text-2xl font-bold text-gray-800">
+                          Week {config.lastWeek}
+                        </h1>
+                        <p className="text-gray-600">
+                          {getWeekDateRange(config.lastWeek, currentYear)} • Te
+                          laat = 50% punten
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {config.tasks.map((task) => {
+                      const isComplete = lastTasks[task.id];
+                      const assignment = getAssignment(task, config.lastWeek);
+                      const canToggle = !isComplete && isEditable;
+                      return (
+                        <button
+                          key={task.id}
+                          onClick={() => canToggle && toggleTask(task.id, true)}
+                          disabled={!canToggle}
+                          className={`w-full p-5 rounded-xl shadow-md transition-all ${
+                            isComplete
+                              ? "bg-yellow-500 text-white cursor-not-allowed"
+                              : canToggle
+                              ? "bg-white text-gray-800 hover:shadow-lg"
+                              : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="text-left">
+                              <div className="font-semibold text-lg">
+                                {task.name}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-sm ${
+                                    isComplete
+                                      ? "text-yellow-100"
+                                      : "text-gray-600"
+                                  }`}
+                                >
+                                  {assignment || "Niemand"}{" "}
+                                  {isComplete && "• Te laat"}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    isComplete
+                                      ? "bg-yellow-200 text-yellow-800"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {isComplete
+                                    ? (task.points || 1.0) * 0.5
+                                    : task.points || 1.0}{" "}
+                                  pt
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                isComplete ? "bg-white" : "bg-gray-200"
+                              }`}
+                            >
+                              {isComplete && (
+                                <Icons.Check
+                                  size={20}
+                                  className="text-yellow-500"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* LEADERBOARD VIEW */}
+              {view === "leaderboard" && (
+                <>
+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setView("tracker")}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <Icons.ChevronLeft size={20} />
+                      </button>
+                      <div>
+                        <h1 className="text-2xl font-bold text-gray-800">
+                          🏆 Leaderboard
+                        </h1>
+                        <p className="text-gray-600">Wie is het schoonst?</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    // Ensure all people are in leaderboard, even with 0 points
+                    const fullLeaderboard = { ...leaderboard };
+                    config.people.forEach((person) => {
+                      if (!fullLeaderboard[person]) {
+                        fullLeaderboard[person] = {
+                          totalPoints: 0,
+                          onTimePoints: 0,
+                          latePoints: 0,
+                          dishwasherPoints: 0,
+                          dishwasherCount: 0,
+                        };
+                      }
+                    });
+
+                    const sorted = Object.entries(fullLeaderboard).sort(
+                      ([, a], [, b]) =>
+                        (b.totalPoints || 0) - (a.totalPoints || 0)
+                    );
+
+                    const top3 = sorted.slice(0, 3);
+                    const rest = sorted.slice(3);
+
+                    return (
+                      <>
+                        {/* PODIUM FOR TOP 3 */}
+                        {top3.length > 0 && (
+                          <div className="flex items-end justify-center gap-4 mb-8">
+                            {/* 2nd Place */}
+                            {top3[1] && (
+                              <div className="flex-1 text-center">
+                                <div className="bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl p-6 shadow-lg transform translate-y-8">
+                                  <div className="text-5xl mb-2">🦢</div>
+                                  <div className="text-4xl font-bold text-gray-700 mb-1">
+                                    2
+                                  </div>
+                                  <div className="font-bold text-gray-800 text-lg mb-1">
+                                    {top3[1][0]}
+                                  </div>
+                                  <div className="text-2xl font-bold text-gray-700">
+                                    {top3[1][1].totalPoints.toFixed(1)}
+                                  </div>
+                                  <div className="text-xs text-gray-600">
+                                    punten
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    🍽️ {top3[1][1].dishwasherCount || 0}x
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 1st Place - SCHOONSTE ZWAAN */}
+                            {top3[0] && (
+                              <div className="flex-1 text-center">
+                                <div className="bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-500 rounded-2xl p-6 shadow-2xl relative">
+                                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
+                                    👑 Schoonste Zwaan
+                                  </div>
+                                  <div className="text-6xl mb-2 swan-bounce">
+                                    🦢
+                                  </div>
+                                  <div className="text-5xl font-bold text-yellow-900 mb-1">
+                                    1
+                                  </div>
+                                  <div className="font-bold text-yellow-900 text-xl mb-1">
+                                    {top3[0][0]}
+                                  </div>
+                                  <div className="text-3xl font-bold text-yellow-900">
+                                    {top3[0][1].totalPoints.toFixed(1)}
+                                  </div>
+                                  <div className="text-sm text-yellow-800">
+                                    punten
+                                  </div>
+                                  <div className="text-xs text-yellow-800 mt-1">
+                                    🍽️ {top3[0][1].dishwasherCount || 0}x
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 3rd Place */}
+                            {top3[2] && (
+                              <div className="flex-1 text-center">
+                                <div className="bg-gradient-to-br from-orange-200 to-orange-300 rounded-2xl p-6 shadow-lg transform translate-y-12">
+                                  <div className="text-4xl mb-2">🦢</div>
+                                  <div className="text-3xl font-bold text-orange-700 mb-1">
+                                    3
+                                  </div>
+                                  <div className="font-bold text-orange-800 text-lg mb-1">
+                                    {top3[2][0]}
+                                  </div>
+                                  <div className="text-xl font-bold text-orange-700">
+                                    {top3[2][1].totalPoints.toFixed(1)}
+                                  </div>
+                                  <div className="text-xs text-orange-600">
+                                    punten
+                                  </div>
+                                  <div className="text-xs text-orange-600 mt-1">
+                                    🍽️ {top3[2][1].dishwasherCount || 0}x
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* REST OF RANKINGS */}
+                        {rest.length > 0 && (
+                          <div className="space-y-3 mt-16">
+                            {rest.map(([name, data], index) => {
+                              const isLast = index === rest.length - 1;
+                              return (
+                                <div
+                                  key={name}
+                                  className={`rounded-xl p-5 shadow-md transition-all ${
+                                    isLast
+                                      ? "bg-gradient-to-r from-amber-50 to-orange-100 border-2 border-amber-300"
+                                      : "bg-white"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-4xl">🐕</div>
+                                      <div>
+                                        {isLast && (
+                                          <div className="text-xs font-bold text-amber-700 mb-1">
+                                            Vieze Daggoe
+                                          </div>
+                                        )}
+                                        <div className="font-bold text-xl text-gray-800">
+                                          {name}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                          #{index + 4} • 🍽️{" "}
+                                          {data.dishwasherCount || 0}x
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-3xl font-bold text-gray-800">
+                                        {data.totalPoints.toFixed(1)}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        punten
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* INDIVIDUAL STATS CARD - Current User Only */}
+                        {(() => {
+                          const userData = fullLeaderboard[user];
+                          if (!userData) return null;
+
+                          return (
+                            <div className="mt-8">
+                              <h3 className="text-lg font-bold text-gray-800 mb-4">
+                                📊 Mijn Punten
+                              </h3>
+                              <div className="bg-white rounded-xl shadow-md p-4">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="bg-green-50 rounded-lg p-2 text-center">
+                                    <div className="text-xs text-green-600 font-medium mb-1">
+                                      Op tijd
+                                    </div>
+                                    <div className="text-lg font-bold text-green-700">
+                                      {(userData.onTimePoints || 0).toFixed(1)}
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-yellow-50 rounded-lg p-2 text-center">
+                                    <div className="text-xs text-yellow-600 font-medium mb-1">
+                                      Te laat
+                                    </div>
+                                    <div className="text-lg font-bold text-yellow-700">
+                                      {(userData.latePoints || 0).toFixed(1)}
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-blue-50 rounded-lg p-2 text-center">
+                                    <div className="text-xs text-blue-600 font-medium mb-1">
+                                      🍽️ Bonus
+                                    </div>
+                                    <div className="text-lg font-bold text-blue-700">
+                                      {(userData.dishwasherPoints || 0).toFixed(
+                                        1
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+
+              {/* ACTIVITY VIEW */}
+              {view === "activity" && (
+                <>
+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setView("tracker")}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <Icons.ChevronLeft size={20} />
+                      </button>
+                      <div>
+                        <h1 className="text-2xl font-bold text-gray-800">
+                          📊 Activiteit
+                        </h1>
+                        <p className="text-gray-600">Recente acties</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {activity.map((act, i) => (
+                      <div
+                        key={i}
+                        className="bg-white rounded-xl shadow-md p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-sm">
+                            {act.user.charAt(0)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-sm">
+                              <span className="font-semibold">{act.user}</span>
+                              <span className="text-gray-600">
+                                {" "}
+                                {act.action}{" "}
+                              </span>
+                              <span className="font-medium">{act.task}</span>
+                              <span className="text-gray-500">
+                                {" "}
+                                • Week {act.weekNumber}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {formatTimestamp(act.timestamp)}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1628,548 +1439,139 @@
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
-
-                  {/* 3rd Place */}
-                  {leaderboard[2] && (
-                    <div className="flex-1 text-center">
-                      <div className="bg-gradient-to-br from-orange-200 to-orange-300 rounded-2xl p-6 shadow-lg transform translate-y-12">
-                        <div className="text-4xl mb-2">🦢</div>
-                        <div className="text-3xl font-bold text-orange-700 mb-1">
-                          3
-                        </div>
-                        <div className="font-bold text-orange-800 text-lg mb-1">
-                          {leaderboard[2].name}
-                        </div>
-                        <div className="text-xl font-bold text-orange-700">
-                          {leaderboard[2].points % 1 === 0
-                            ? leaderboard[2].points
-                            : leaderboard[2].points.toFixed(2)}
-                        </div>
-                        <div className="text-xs text-orange-600">punten</div>
-                        {leaderboard[2].currentStreak > 0 && (
-                          <div className="mt-2 text-orange-600 font-medium text-xs">
-                            🔥 {leaderboard[2].currentStreak}{" "}
-                            {leaderboard[2].currentStreak === 1
-                              ? "week"
-                              : "weken"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom rankings - All dogs */}
-                {leaderboard.length > 3 && (
-                  <div className="space-y-3 mt-16">
-                    {leaderboard.slice(3).map((person, index) => {
-                      const isLast = index === leaderboard.slice(3).length - 1;
-                      return (
-                        <div
-                          key={person.name}
-                          className={`rounded-xl p-5 shadow-md transition-all ${
-                            isLast
-                              ? "bg-gradient-to-r from-amber-50 to-orange-100 border-2 border-amber-300"
-                              : "bg-white"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="text-4xl">🐕</div>
-                              <div>
-                                {isLast && (
-                                  <div className="text-xs font-bold text-amber-700 mb-1">
-                                    Vieze Daggoe
-                                  </div>
-                                )}
-                                <div className="font-bold text-xl text-gray-800">
-                                  {person.name}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  #{index + 4}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-3xl font-bold text-gray-800">
-                                {person.points % 1 === 0
-                                  ? person.points
-                                  : person.points.toFixed(2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                punten
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    ))}
                   </div>
-                )}
-              </>
-            )}
+                </>
+              )}
 
-            {/* Summary stats */}
-            {leaderboard.length > 0 && (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-4 mt-4">
-                <div className="flex items-center justify-around text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-gray-800">
-                      {leaderboard
-                        .reduce((sum, p) => sum + p.totalTasks, 0)
-                        .toFixed(1)}
-                    </div>
-                    <div className="text-xs text-gray-600">Totale punten</div>
-                  </div>
-                  <div className="w-px h-12 bg-gray-300"></div>
-                  <div>
-                    <div className="text-2xl font-bold text-gray-800">
-                      {filteredHistory.length}
-                    </div>
-                    <div className="text-xs text-gray-600">Weken</div>
-                  </div>
-                  <div className="w-px h-12 bg-gray-300"></div>
-                  <div>
-                    <div className="text-2xl font-bold text-blue-600">
-                      {filteredHistory.length > 0 ? (
-                        <>
-                          {(
-                            leaderboard.reduce(
-                              (sum, p) => sum + p.completionRate,
-                              0
-                            ) / leaderboard.length
-                          ).toFixed(0)}
-                          %
-                        </>
-                      ) : (
-                        "0%"
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-600">Huis gemiddelde</div>
-                  </div>
-                </div>
-              </div>
-            )}
+              {/* SETTINGS VIEW */}
+              {view === "settings" && (
+                <SettingsView
+                  config={config}
+                  onBack={() => setView("tracker")}
+                  currentWeek={config.currentWeek}
+                  getAssignment={getAssignment}
+                />
+              )}
 
-            {/* Encouragement message when no history yet */}
-            {filteredHistory.length === 0 && (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6 mt-4 text-center">
-                <div className="text-4xl mb-3">🏁</div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">
-                  De competitie begint nu!
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Voltooi taken om punten te verdienen en de leaderboard te
-                  beklimmen. Wie wordt de schoonste zwaan? 🦢
-                </p>
-              </div>
-            )}
+              {/* DISHWASHER CONFIRM */}
+              <ConfirmDialog
+                isOpen={showDishwasherConfirm}
+                title="Is de vaat op het aanrecht ook ingeruimd?"
+                message=""
+                onConfirm={confirmDishwasher}
+                onCancel={() => setShowDishwasherConfirm(false)}
+                confirmText="Ja, bevestig"
+                cancelText="Nee, annuleer"
+              />
+            </div>
           </div>
         );
-      };
+      }
 
-      const EditView = ({
-        trackedWeek,
-        currentYear,
-        currentCalendarWeek,
-        taskDefinitions,
-        people,
-        assignments,
-        rotationOffsets,
-        tasks,
-        dishwasherPoints,
-        updateDishwasherPoints,
-        adjustWeek,
-        updateTrackedWeek,
-        updateRotationOffsets,
-        updatePeople,
-        storedLeaderboard,
-        updateTaskDefinitions,
-        updateTasks,
-        logActivity,
-        setCurrentView,
-        currentUser,
-        activityLog,
-      }) => {
-        const [newPersonName, setNewPersonName] = useState("");
-        const [newTaskName, setNewTaskName] = useState("");
+      // ============================================================================
+      // SETTINGS VIEW
+      // ============================================================================
+
+      function SettingsView({ config, onBack, currentWeek, getAssignment }) {
         const [showAddPerson, setShowAddPerson] = useState(false);
         const [showAddTask, setShowAddTask] = useState(false);
-        const [confirmDeleteTask, setConfirmDeleteTask] = useState(null);
-        const [confirmDeletePerson, setConfirmDeletePerson] = useState(null);
+        const [newPerson, setNewPerson] = useState("");
+        const [newTask, setNewTask] = useState("");
+        const [expandedTasks, setExpandedTasks] = useState({});
 
-        // Track initial and current values to detect changes on exit
-        const initialDishwasherPoints = useRef(null);
-        const currentDishwasherPoints = useRef(dishwasherPoints);
-        const initialTaskPoints = useRef({});
-        const currentTaskPoints = useRef({});
-        const hasLogged = useRef(false);
+        const updateConfig = async (updates) => {
+          await db.ref("config").update(updates);
+        };
 
-        // Store refs for values needed in cleanup
-        const currentUserRef = useRef(currentUser);
-        const activityLogRef = useRef(activityLog);
-        const trackedWeekRef = useRef(trackedWeek);
+        const addPerson = async () => {
+          if (!newPerson.trim() || config.people.includes(newPerson.trim()))
+            return;
+          await updateConfig({ people: [...config.people, newPerson.trim()] });
+          setNewPerson("");
+          setShowAddPerson(false);
+        };
 
-        // Update current values whenever they change
-        useEffect(() => {
-          if (initialDishwasherPoints.current === null) {
-            initialDishwasherPoints.current = dishwasherPoints;
-          }
-          currentDishwasherPoints.current = dishwasherPoints;
-        }, [dishwasherPoints]);
-
-        useEffect(() => {
-          taskDefinitions.forEach((task) => {
-            if (!(task.id in initialTaskPoints.current)) {
-              initialTaskPoints.current[task.id] = {
-                name: task.name,
-                points: task.points || 1.0,
-              };
-            }
-            currentTaskPoints.current[task.id] = {
-              name: task.name,
-              points: task.points || 1.0,
-            };
+        const removePerson = async (person) => {
+          const newTasks = config.tasks.map((t) => ({
+            ...t,
+            assignedPeople: t.assignedPeople.filter((p) => p !== person),
+          }));
+          await updateConfig({
+            people: config.people.filter((p) => p !== person),
+            tasks: newTasks,
           });
-        }, [taskDefinitions]);
-
-        // Update refs for values needed in cleanup
-        useEffect(() => {
-          currentUserRef.current = currentUser;
-          activityLogRef.current = activityLog;
-          trackedWeekRef.current = trackedWeek;
-        }, [currentUser, activityLog, trackedWeek]);
-
-        // Log all changes only when unmounting (leaving settings page)
-        useEffect(() => {
-          return () => {
-            if (hasLogged.current) return;
-            hasLogged.current = true;
-
-            // Collect all changes to log
-            const activitiesToLog = [];
-            const timestamp = Date.now();
-
-            // Check dishwasher points change
-            if (
-              initialDishwasherPoints.current !== null &&
-              initialDishwasherPoints.current !==
-                currentDishwasherPoints.current
-            ) {
-              activitiesToLog.push({
-                user: currentUserRef.current,
-                action: "wijzigde vaatwasser punten",
-                task: `${initialDishwasherPoints.current} → ${currentDishwasherPoints.current}`,
-                status: true,
-                timestamp: timestamp,
-                weekNumber: trackedWeekRef.current,
-              });
-            }
-
-            // Check task points changes
-            Object.keys(currentTaskPoints.current).forEach((taskId) => {
-              const initial = initialTaskPoints.current[taskId];
-              const current = currentTaskPoints.current[taskId];
-              if (initial && current && initial.points !== current.points) {
-                activitiesToLog.push({
-                  user: currentUserRef.current,
-                  action: "wijzigde taak punten",
-                  task: `${current.name}: ${initial.points} → ${current.points}`,
-                  status: true,
-                  timestamp: timestamp,
-                  weekNumber: trackedWeekRef.current,
-                });
-              }
-            });
-
-            // Log all activities in a single batch if there are any changes
-            if (activitiesToLog.length > 0) {
-              const updatedActivityLog = [
-                ...activitiesToLog,
-                ...activityLogRef.current,
-              ].slice(0, ACTIVITY_LOG_LIMIT);
-
-              database
-                .ref("activity")
-                .set(updatedActivityLog)
-                .catch((error) => {
-                  console.error("Error logging activities:", error);
-                });
-            }
-          };
-        }, []); // Empty array - only on unmount
-        const removePerson = (person) => {
-          setConfirmDeletePerson(person);
         };
 
-        const confirmRemovePerson = () => {
-          if (confirmDeletePerson) {
-            updatePeople(people.filter((p) => p !== confirmDeletePerson));
-            updateTaskDefinitions(
-              taskDefinitions.map((task) => ({
-                ...task,
-                assignedPeople: task.assignedPeople.filter(
-                  (p) => p !== confirmDeletePerson
-                ),
-              }))
-            );
-            setConfirmDeletePerson(null);
-          }
+        const addTask = async () => {
+          if (!newTask.trim()) return;
+          const id = newTask.toLowerCase().replace(/\s+/g, "_");
+          await updateConfig({
+            tasks: [
+              ...config.tasks,
+              { id, name: newTask.trim(), assignedPeople: [], points: 1.0 },
+            ],
+          });
+          setNewTask("");
+          setShowAddTask(false);
         };
 
-        const addPerson = () => {
-          if (newPersonName.trim() && !people.includes(newPersonName.trim())) {
-            updatePeople([...people, newPersonName.trim()]);
-            setNewPersonName("");
-            setShowAddPerson(false);
-          }
+        const removeTask = async (taskId) => {
+          await updateConfig({
+            tasks: config.tasks.filter((t) => t.id !== taskId),
+          });
         };
 
-        const removeTask = (index) => {
-          setConfirmDeleteTask(index);
-        };
-
-        const confirmRemoveTask = () => {
-          if (confirmDeleteTask !== null) {
-            const taskToRemove = taskDefinitions[confirmDeleteTask];
-            updateTaskDefinitions(
-              taskDefinitions.filter((_, i) => i !== confirmDeleteTask)
-            );
-            const newTasks = { ...tasks };
-            delete newTasks[taskToRemove.id];
-            updateTasks(newTasks);
-            setConfirmDeleteTask(null);
-          }
-        };
-
-        const addTask = () => {
-          if (newTaskName.trim()) {
-            const newId = newTaskName.toLowerCase().replace(/\s+/g, "_");
-            updateTaskDefinitions([
-              ...taskDefinitions,
-              {
-                id: newId,
-                name: newTaskName.trim(),
-                assignedPeople: [],
-                expanded: true,
-                points: 1.0,
-              },
-            ]);
-            setNewTaskName("");
-            setShowAddTask(false);
-          }
-        };
-
-        const toggleTaskExpand = (index) => {
-          updateTaskDefinitions(
-            taskDefinitions.map((task, i) =>
-              i === index ? { ...task, expanded: !task.expanded } : task
-            )
+        const updateTask = async (taskId, updates) => {
+          const newTasks = config.tasks.map((t) =>
+            t.id === taskId ? { ...t, ...updates } : t
           );
+          await updateConfig({ tasks: newTasks });
         };
 
-        const togglePersonInTask = (taskIndex, person) => {
-          updateTaskDefinitions(
-            taskDefinitions.map((task, i) => {
-              if (i === taskIndex) {
-                const isAssigned = task.assignedPeople.includes(person);
-                return {
-                  ...task,
-                  assignedPeople: isAssigned
-                    ? task.assignedPeople.filter((p) => p !== person)
-                    : [...task.assignedPeople, person],
-                };
-              }
-              return task;
-            })
-          );
+        const toggleTaskPerson = async (taskId, person) => {
+          const task = config.tasks.find((t) => t.id === taskId);
+          const assigned = task.assignedPeople.includes(person);
+          const newAssigned = assigned
+            ? task.assignedPeople.filter((p) => p !== person)
+            : [...task.assignedPeople, person];
+          await updateTask(taskId, { assignedPeople: newAssigned });
+        };
+
+        const changeRotation = async (taskId, person) => {
+          const task = config.tasks.find((t) => t.id === taskId);
+          const personIndex = task.assignedPeople.indexOf(person);
+          const currentIndex = (currentWeek - 1) % task.assignedPeople.length;
+          const newOffset = personIndex - currentIndex;
+          await db.ref(`config/rotationOffsets/${taskId}`).set(newOffset);
         };
 
         return (
-          <div>
+          <>
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setCurrentView("tracker")}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  onClick={onBack}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
                 >
-                  <ChevronLeft size={20} />
+                  <Icons.ChevronLeft size={20} />
                 </button>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-800">
                     ⚙️ Instellingen
                   </h1>
-                  <p className="text-gray-600">Aanpassen en beheren</p>
+                  <p className="text-gray-600">Configuratie</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-md p-5 mb-4">
-              <h3 className="font-semibold text-gray-700 mb-3">
-                📅 Week Aanpassen
-              </h3>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="text-2xl font-bold text-gray-800">
-                    Week {trackedWeek}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {getWeekDateRange(trackedWeek, currentYear)}
-                  </div>
-                  {(() => {
-                    if (trackedWeek === currentCalendarWeek) {
-                      return (
-                        <div className="text-xs text-green-600 font-medium mt-1">
-                          ✓ Huidige week
-                        </div>
-                      );
-                    } else if (trackedWeek < currentCalendarWeek) {
-                      return (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Verleden week
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => adjustWeek(-1)}
-                    disabled={trackedWeek <= 1}
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold transition-all ${
-                      trackedWeek <= 1
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    }`}
-                  >
-                    -
-                  </button>
-                  <button
-                    onClick={() => adjustWeek(1)}
-                    disabled={trackedWeek >= currentCalendarWeek}
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold transition-all ${
-                      trackedWeek >= currentCalendarWeek
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    }`}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  updateTrackedWeek(currentCalendarWeek);
-                }}
-                className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 p-3 rounded-lg text-sm font-medium transition-all"
-              >
-                Reset naar Huidige Kalenderweek
-              </button>
-            </div>
-
-            {/* Manual Assignment for Current Week */}
-            <div className="bg-white rounded-xl shadow-md p-5 mb-4">
-              <h3 className="font-semibold text-gray-700 mb-3">
-                👤 Wie doet wat deze week?
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Pas de rotatie volgorde aan (verandert wie er aan de beurt is)
-              </p>
-              <div className="space-y-3">
-                {taskDefinitions.map((taskDef) => (
-                  <div
-                    key={taskDef.id}
-                    className="border border-gray-200 rounded-lg p-3"
-                  >
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {taskDef.name}
-                    </label>
-                    {taskDef.assignedPeople.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {taskDef.assignedPeople.map((person) => (
-                          <button
-                            key={person}
-                            onClick={() => {
-                              const currentAssignment = assignments[taskDef.id];
-                              if (person !== currentAssignment) {
-                                const personIndex =
-                                  taskDef.assignedPeople.indexOf(person);
-                                const currentIndex =
-                                  (trackedWeek - 1) %
-                                  taskDef.assignedPeople.length;
-                                const newOffset = personIndex - currentIndex;
-
-                                updateRotationOffsets({
-                                  ...rotationOffsets,
-                                  [taskDef.id]: newOffset,
-                                });
-                                logActivity(
-                                  "wijzigde rotatie",
-                                  `${taskDef.name} → ${person}`,
-                                  true
-                                );
-                              }
-                            }}
-                            className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                              assignments[taskDef.id] === person
-                                ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
-                                : "border-gray-200 hover:border-gray-300 text-gray-700"
-                            }`}
-                          >
-                            {person}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 italic">
-                        Geen personen toegewezen aan deze taak
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Dishwasher Points Configuration */}
-            <div className="bg-white rounded-xl shadow-md p-5 mb-4">
-              <h3 className="font-semibold text-gray-700 mb-3">
-                🍽️ Vaatwasser Bonus Punten
-              </h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Stel in hoeveel punten elke keer vaatwasser legen waard is
-              </p>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  value={dishwasherPoints}
-                  onChange={(e) => {
-                    const newPoints = parseFloat(e.target.value) || 0.25;
-                    updateDishwasherPoints(newPoints);
-                  }}
-                  className="w-32 px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-lg"
-                />
-                <span className="text-gray-600">punten per keer</span>
-              </div>
-              <div className="mt-3 bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
-                <p className="text-xs text-blue-800">
-                  💡 Tip: Verhoog dit als je de vaatwasser bonus belangrijker
-                  wilt maken in de leaderboard
-                </p>
-              </div>
-            </div>
-
-            {/* People Section */}
+            {/* PEOPLE */}
             <div className="bg-white rounded-xl shadow-md p-5 mb-4">
               <h3 className="font-semibold text-gray-700 mb-3">
                 👥 Huisgenoten
               </h3>
               <div className="flex flex-wrap gap-2">
-                {people.map((person) => (
+                {config.people.map((person) => (
                   <div
                     key={person}
                     className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full font-medium"
@@ -2177,19 +1579,18 @@
                     <span>{person}</span>
                     <button
                       onClick={() => removePerson(person)}
-                      className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                      className="hover:bg-blue-200 rounded-full p-0.5"
                     >
-                      <X size={16} />
+                      <Icons.X size={16} />
                     </button>
                   </div>
                 ))}
-
                 {showAddPerson ? (
-                  <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-3 py-2 rounded-full">
+                  <div className="inline-flex items-center gap-2 bg-green-100 px-3 py-2 rounded-full">
                     <input
                       type="text"
-                      value={newPersonName}
-                      onChange={(e) => setNewPersonName(e.target.value)}
+                      value={newPerson}
+                      onChange={(e) => setNewPerson(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && addPerson()}
                       placeholder="Naam..."
                       className="bg-transparent border-none outline-none w-24 text-sm"
@@ -2199,198 +1600,184 @@
                       onClick={addPerson}
                       className="hover:bg-green-200 rounded-full p-0.5"
                     >
-                      <Check size={16} />
+                      <Icons.Check size={16} />
                     </button>
                     <button
-                      onClick={() => {
-                        setShowAddPerson(false);
-                        setNewPersonName("");
-                      }}
+                      onClick={() => setShowAddPerson(false)}
                       className="hover:bg-green-200 rounded-full p-0.5"
                     >
-                      <X size={16} />
+                      <Icons.X size={16} />
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setShowAddPerson(true)}
-                    className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full font-medium transition-colors"
+                    className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full font-medium"
                   >
-                    <Plus size={16} />
+                    <Icons.Plus size={16} />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Tasks Section */}
+            {/* ROTATION */}
+            <div className="bg-white rounded-xl shadow-md p-5 mb-4">
+              <h3 className="font-semibold text-gray-700 mb-3">
+                👤 Wie doet wat deze week?
+              </h3>
+              <div className="space-y-3">
+                {config.tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="border border-gray-200 rounded-lg p-3"
+                  >
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {task.name}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {task.assignedPeople.map((person) => (
+                        <button
+                          key={person}
+                          onClick={() => changeRotation(task.id, person)}
+                          className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                            getAssignment(task, currentWeek) === person
+                              ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
+                              : "border-gray-200 hover:border-gray-300 text-gray-700"
+                          }`}
+                        >
+                          {person}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* DISHWASHER POINTS */}
+            <div className="bg-white rounded-xl shadow-md p-5 mb-4">
+              <h3 className="font-semibold text-gray-700 mb-3">
+                🍽️ Vaatwasser Punten
+              </h3>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  value={config.dishwasherPoints}
+                  onChange={(e) =>
+                    updateConfig({
+                      dishwasherPoints: parseFloat(e.target.value) || 0.25,
+                    })
+                  }
+                  className="w-32 px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold"
+                />
+                <span className="text-gray-600">punten</span>
+              </div>
+            </div>
+
+            {/* TASKS */}
             <div className="bg-white rounded-xl shadow-md p-5 mb-4">
               <h3 className="font-semibold text-gray-700 mb-3">📋 Taken</h3>
               <div className="space-y-3">
-                {taskDefinitions.map((task, index) => (
+                {config.tasks.map((task) => (
                   <div
-                    key={index}
+                    key={task.id}
                     className="border-2 border-gray-200 rounded-xl overflow-hidden"
                   >
                     <div
-                      onClick={() => toggleTaskExpand(index)}
-                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() =>
+                        setExpandedTasks({
+                          ...expandedTasks,
+                          [task.id]: !expandedTasks[task.id],
+                        })
+                      }
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
                     >
                       <div className="flex items-center gap-3">
-                        {task.expanded ? (
-                          <ChevronDown size={20} className="text-gray-500" />
+                        {expandedTasks[task.id] ? (
+                          <Icons.ChevronDown size={20} />
                         ) : (
-                          <ChevronRight size={20} className="text-gray-500" />
+                          <Icons.ChevronRight size={20} />
                         )}
-                        <span className="font-semibold text-gray-800">
-                          {task.name}
-                        </span>
+                        <span className="font-semibold">{task.name}</span>
                         <span className="text-xs text-gray-500">
-                          ({task.assignedPeople.length}{" "}
-                          {task.assignedPeople.length === 1
-                            ? "persoon"
-                            : "personen"}
-                          , {task.points || 1.0} punten)
+                          ({task.points || 1.0} pt)
                         </span>
                       </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          removeTask(index);
+                          removeTask(task.id);
                         }}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
+                        className="p-2 hover:bg-red-50 rounded-lg text-red-600"
                       >
-                        <X size={18} />
+                        <Icons.X size={18} />
                       </button>
                     </div>
-
-                    {task.expanded && (
-                      <div className="p-4 pt-0 border-t border-gray-200 bg-gray-50">
-                        {/* Points Configuration */}
-                        <div className="mb-4 pb-4 border-b border-gray-200">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Punten waarde
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              step="0.25"
-                              min="0"
-                              value={task.points || 1.0}
-                              onChange={(e) => {
-                                const newPoints =
-                                  parseFloat(e.target.value) || 1.0;
-                                updateTaskDefinitions(
-                                  taskDefinitions.map((t, i) =>
-                                    i === index
-                                      ? { ...t, points: newPoints }
-                                      : t
-                                  )
-                                );
-                              }}
-                              className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-600">
-                              punten per voltooiing
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Hogere waarde = meer punten in leaderboard
-                          </p>
-                        </div>
-
-                        {/* Person assignment section */}
-                        <div className="mt-3">
-                          <p className="text-sm font-medium text-gray-700 mb-2">
-                            Wie kan dit doen?
-                          </p>
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {task.assignedPeople.map((person) => (
-                              <button
-                                key={person}
-                                onClick={() =>
-                                  togglePersonInTask(index, person)
-                                }
-                                className="inline-flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer"
-                              >
-                                <span>✓ {person}</span>
-                                <X size={14} />
-                              </button>
-                            ))}
-                          </div>
-
-                          {people.filter(
-                            (p) => !task.assignedPeople.includes(p)
-                          ).length > 0 && (
-                            <div>
-                              <p className="text-xs text-gray-500 mb-2">
-                                Voeg toe:
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {people
-                                  .filter(
-                                    (p) => !task.assignedPeople.includes(p)
-                                  )
-                                  .map((person) => (
-                                    <button
-                                      key={person}
-                                      onClick={() =>
-                                        togglePersonInTask(index, person)
-                                      }
-                                      className="inline-flex items-center gap-1 bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
-                                    >
-                                      <Plus size={14} />
-                                      {person}
-                                    </button>
-                                  ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {task.assignedPeople.length > 1 && (
-                            <div className="mt-4 pt-3 border-t border-gray-200">
-                              <p className="text-sm text-gray-600">
-                                🔄 Automatisch rouleren:{" "}
-                                <span className="font-medium text-green-600">
-                                  Ingeschakeld
-                                </span>
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Wisselt wekelijks tussen{" "}
-                                {task.assignedPeople.join(" en ")}
-                              </p>
-                            </div>
-                          )}
+                    {expandedTasks[task.id] && (
+                      <div className="p-4 border-t bg-gray-50">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Punten
+                        </label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          min="0"
+                          value={task.points || 1.0}
+                          onChange={(e) =>
+                            updateTask(task.id, {
+                              points: parseFloat(e.target.value) || 1.0,
+                            })
+                          }
+                          className="w-24 px-3 py-2 border border-gray-300 rounded-lg mb-3"
+                        />
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Wie kan dit doen?
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {config.people.map((person) => (
+                            <button
+                              key={person}
+                              onClick={() => toggleTaskPerson(task.id, person)}
+                              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                task.assignedPeople.includes(person)
+                                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              }`}
+                            >
+                              {task.assignedPeople.includes(person)
+                                ? "✓ "
+                                : "+ "}
+                              {person}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     )}
                   </div>
                 ))}
-
-                {/* Add Task */}
                 {showAddTask ? (
                   <div className="border-2 border-dashed border-green-300 rounded-xl p-4 bg-green-50">
                     <input
                       type="text"
-                      value={newTaskName}
-                      onChange={(e) => setNewTaskName(e.target.value)}
+                      value={newTask}
+                      onChange={(e) => setNewTask(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && addTask()}
-                      placeholder="Nieuwe taak naam..."
-                      className="w-full px-3 py-2 border border-green-300 rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Taak naam..."
+                      className="w-full px-3 py-2 border border-green-300 rounded-lg mb-2"
                       autoFocus
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={addTask}
-                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium"
                       >
                         Toevoegen
                       </button>
                       <button
-                        onClick={() => {
-                          setShowAddTask(false);
-                          setNewTaskName("");
-                        }}
-                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors"
+                        onClick={() => setShowAddTask(false)}
+                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"
                       >
                         Annuleer
                       </button>
@@ -2399,793 +1786,23 @@
                 ) : (
                   <button
                     onClick={() => setShowAddTask(true)}
-                    className="w-full border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 rounded-xl p-4 text-gray-600 hover:text-blue-600 font-medium transition-colors flex items-center justify-center gap-2"
+                    className="w-full border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 rounded-xl p-4 text-gray-600 hover:text-blue-600 font-medium flex items-center justify-center gap-2"
                   >
-                    <Plus size={20} />
+                    <Icons.Plus size={20} />
                     Nieuwe Taak
                   </button>
                 )}
               </div>
             </div>
-
-            {/* Confirm Delete Modals */}
-            <ConfirmDialog
-              isOpen={confirmDeleteTask !== null}
-              title="Taak Verwijderen?"
-              message={`Weet je zeker dat je "${taskDefinitions[confirmDeleteTask]?.name}" wilt verwijderen?`}
-              onConfirm={confirmRemoveTask}
-              onCancel={() => setConfirmDeleteTask(null)}
-            />
-
-            <ConfirmDialog
-              isOpen={!!confirmDeletePerson}
-              title="Persoon Verwijderen?"
-              message={`Weet je zeker dat je ${confirmDeletePerson} wilt verwijderen? Ze worden ook uit alle taken verwijderd.`}
-              onConfirm={confirmRemovePerson}
-              onCancel={() => setConfirmDeletePerson(null)}
-            />
-
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="text-sm text-blue-800">
-                💡 <strong>Tip:</strong> Taken met meerdere personen rouleren
-                automatisch per week. Wijs één persoon toe voor een vaste taak.
-              </p>
-            </div>
-          </div>
-        );
-      };
-
-      // ============================================================================
-      // 📱 SECTION: Main App Component
-      // ============================================================================
-
-      function CleaningTracker() {
-        // State Management
-        const [currentView, setCurrentView] = useState("tracker");
-        const [currentUser, setCurrentUser] = useState(() => {
-          return localStorage.getItem("currentUser") || "";
-        });
-        const [showUserPicker, setShowUserPicker] = useState(
-          !localStorage.getItem("currentUser")
-        );
-        const [dishwasherLogs, setDishwasherLogs] = useState([]);
-        const [showDishwasherConfirm, setShowDishwasherConfirm] =
-          useState(false);
-        const [storedLeaderboard, setStoredLeaderboard] = useState(null);
-        const [dishwasherPoints, setDishwasherPoints] = useState(0.25);
-
-        const [tasks, setTasks] = useState({});
-        const [history, setHistory] = useState([]);
-        const [activityLog, setActivityLog] = useState([]);
-        const [people, setPeople] = useState([
-          "Sam",
-          "Roel",
-          "Stijn",
-          "Tom",
-          "Maxim",
-        ]);
-        const [rotationOffsets, setRotationOffsets] = useState({});
-        const [taskDefinitions, setTaskDefinitions] = useState([
-          {
-            id: "woonkamer",
-            name: "Woonkamer",
-            assignedPeople: ["Roel", "Stijn"],
-            expanded: false,
-            points: 1.0,
-          },
-          {
-            id: "keuken",
-            name: "Keuken",
-            assignedPeople: ["Tom", "Maxim"],
-            expanded: false,
-            points: 1.0,
-          },
-          {
-            id: "vuilnis",
-            name: "Doeken/Vuilnis",
-            assignedPeople: ["Sam"],
-            expanded: false,
-            points: 1.0,
-          },
-        ]);
-
-        const [showClearConfirm, setShowClearConfirm] = useState(false);
-        const [trackedWeek, setTrackedWeek] = useState(
-          getWeekNumber(new Date())
-        );
-        const [isLoading, setIsLoading] = useState(true);
-        const [timeUntilDeadline, setTimeUntilDeadline] = useState(
-          getTimeUntilDeadline()
-        );
-
-        const [showInstallGuide, setShowInstallGuide] = useState(false);
-
-        // Memoized calculations (only recalculate when needed)
-        const currentYear = useMemo(() => new Date().getFullYear(), []);
-        const currentCalendarWeek = useMemo(
-          () => getWeekNumber(new Date()),
-          []
-        );
-
-        // Firebase Sync Effect
-        useEffect(() => {
-          // Listen to dishwasher logs
-          const dishwasherRef = database.ref("dishwasherLogs");
-          dishwasherRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setDishwasherLogs(data);
-            } else {
-              setDishwasherLogs([]);
-            }
-          });
-          // Real-time listener for current week's tasks
-          const currentWeekTasksRef = database.ref(
-            `tasksByWeek/${trackedWeek}`
-          );
-          currentWeekTasksRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setTasks(data);
-            } else {
-              // Initialize empty tasks for this week
-              const emptyTasks = {};
-              taskDefinitions.forEach((taskDef) => {
-                emptyTasks[taskDef.id] = false;
-              });
-              setTasks(emptyTasks);
-            }
-          });
-          setIsLoading(false);
-
-          // Listen to history
-          const historyRef = database.ref("history");
-          historyRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setHistory(data);
-            } else {
-              setHistory([]);
-            }
-          });
-
-          // Listen to activity log
-          const activityRef = database.ref("activity");
-          activityRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setActivityLog(data);
-            } else {
-              setActivityLog([]);
-            }
-          });
-
-          // Listen to people
-          const peopleRef = database.ref("people");
-          peopleRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setPeople(data);
-            }
-          });
-
-          // Listen to task definitions
-          const taskDefsRef = database.ref("taskDefinitions");
-          taskDefsRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              // Normalize: ensure all tasks have assignedPeople array
-              const normalizedData = data.map((task) => ({
-                ...task,
-                assignedPeople: task.assignedPeople || [],
-                expanded: task.expanded || false,
-              }));
-              setTaskDefinitions(normalizedData);
-            }
-          });
-
-          // Listen to rotation offsets
-          const offsetsRef = database.ref("rotationOffsets");
-          offsetsRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setRotationOffsets(data);
-            }
-          });
-
-          // Listen to tracked week
-          const weekRef = database.ref("trackedWeek");
-          weekRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              setTrackedWeek(data);
-            }
-          });
-
-          // Listen to dishwasher points config
-          const dishwasherPointsRef = database.ref("config/dishwasherPoints");
-          dishwasherPointsRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data !== null) {
-              setDishwasherPoints(data);
-            }
-          });
-
-          // Listen to stored leaderboard
-          const leaderboardRef = database.ref("leaderboard");
-          leaderboardRef.on("value", (snapshot) => {
-            const data = snapshot.val();
-            setStoredLeaderboard(data);
-          });
-
-          // Cleanup listeners on unmount and when week changes
-          return () => {
-            dishwasherRef.off();
-            currentWeekTasksRef.off();
-            historyRef.off();
-            activityRef.off();
-            peopleRef.off();
-            taskDefsRef.off();
-            offsetsRef.off();
-            dishwasherPointsRef.off();
-            weekRef.off();
-            leaderboardRef.off();
-          };
-        }, [trackedWeek]);
-
-        // Deadline Timer Effect
-        useEffect(() => {
-          const interval = setInterval(() => {
-            setTimeUntilDeadline(getTimeUntilDeadline());
-          }, DEADLINE_UPDATE_INTERVAL);
-          return () => clearInterval(interval);
-        }, []);
-
-        const updateDishwasherLogs = async (newLogs) => {
-          try {
-            await retryWithBackoff(() =>
-              database.ref("dishwasherLogs").set(newLogs)
-            );
-            // Recalculate leaderboard when dishwasher points change
-            await recalculateLeaderboard(history);
-          } catch (error) {
-            handleFirebaseError(error, "vaatwasser logs bijwerken");
-          }
-        };
-
-        const canEmptyDishwasherToday = () => {
-          if (trackedWeek < currentCalendarWeek) {
-            return false;
-          }
-
-          const today = new Date().toDateString();
-          const todayLogs = dishwasherLogs.filter((log) => {
-            const logDate = new Date(log.timestamp).toDateString();
-            return (
-              logDate === today &&
-              log.user === currentUser &&
-              log.weekNumber === trackedWeek
-            );
-          });
-          return todayLogs.length === 0;
-        };
-
-        const getDishwasherCountThisWeek = () => {
-          return dishwasherLogs.filter((log) => log.weekNumber === trackedWeek)
-            .length;
-        };
-
-        const getLastDishwasherLog = () => {
-          const today = new Date().toDateString();
-          const todayLogs = dishwasherLogs.filter((log) => {
-            const logDate = new Date(log.timestamp).toDateString();
-            return logDate === today && log.weekNumber === trackedWeek;
-          });
-
-          if (todayLogs.length === 0) return null;
-
-          // Get most recent
-          const sorted = todayLogs.sort((a, b) => b.timestamp - a.timestamp);
-          return sorted[0];
-        };
-
-        const handleDishwasherClick = () => {
-          if (canEmptyDishwasherToday()) {
-            setShowDishwasherConfirm(true);
-          }
-        };
-
-        const confirmDishwasher = () => {
-          const newLog = {
-            user: currentUser,
-            timestamp: Date.now(),
-            weekNumber: trackedWeek,
-            points: dishwasherPoints,
-          };
-
-          const newLogs = [...dishwasherLogs, newLog];
-          updateDishwasherLogs(newLogs);
-          logActivity(
-            "leegde de vaatwasser",
-            `+${dishwasherPoints} punten`,
-            true
-          );
-          setShowDishwasherConfirm(false);
-        };
-
-        const cancelDishwasher = () => {
-          setShowDishwasherConfirm(false);
-        };
-
-        // Auto-Archive Effect
-        useEffect(() => {
-          checkAndArchiveOldWeeks();
-        }, [trackedWeek, history, tasks, taskDefinitions]);
-
-        // Auto-advance to current week effect (only on initial load)
-        useEffect(() => {
-          const autoAdvanceWeek = async () => {
-            // Only run if not loading and tracked week is behind current week
-            if (!isLoading && trackedWeek < currentCalendarWeek) {
-              // First, archive the old week
-              await checkAndArchiveOldWeeks();
-
-              // Then update to current week
-              updateTrackedWeek(currentCalendarWeek);
-            }
-          };
-
-          // Run only once when loading completes
-          if (!isLoading) {
-            autoAdvanceWeek();
-          }
-        }, [isLoading]);
-
-        // Business Logic Functions with retry support
-        const logActivity = async (action, task, status) => {
-          const activity = {
-            user: currentUser,
-            action: action,
-            task: task,
-            status: status,
-            timestamp: Date.now(),
-            weekNumber: trackedWeek,
-          };
-          const newActivity = [activity, ...activityLog].slice(
-            0,
-            ACTIVITY_LOG_LIMIT
-          );
-
-          try {
-            await retryWithBackoff(() =>
-              database.ref("activity").set(newActivity)
-            );
-          } catch (error) {
-            handleFirebaseError(error, "activiteit opslaan");
-          }
-        };
-
-        const updateTasks = async (newTasks) => {
-          try {
-            await retryWithBackoff(() =>
-              database.ref(`tasksByWeek/${trackedWeek}`).set(newTasks)
-            );
-          } catch (error) {
-            handleFirebaseError(error, "taken bijwerken");
-          }
-        };
-
-        const updateHistory = async (newHistory) => {
-          try {
-            await retryWithBackoff(() =>
-              database.ref("history").set(newHistory)
-            );
-            // Recalculate and save leaderboard whenever history changes
-            await recalculateLeaderboard(newHistory);
-          } catch (error) {
-            handleFirebaseError(error, "geschiedenis bijwerken");
-          }
-        };
-
-        const recalculateLeaderboard = async (historyData) => {
-          try {
-            // Calculate leaderboard scores from history
-            const scores = {};
-
-            people.forEach((person) => {
-              scores[person] = {
-                name: person,
-                onTimeTasks: 0,
-                lateTasks: 0,
-                dishwasherPoints: 0,
-                totalPoints: 0,
-              };
-            });
-
-            // Calculate points from history
-            historyData.forEach((week) => {
-              people.forEach((person) => {
-                const personTasks = Object.entries(week.assignments).filter(
-                  ([_, assignedPerson]) => assignedPerson === person
-                );
-
-                personTasks.forEach(([taskId]) => {
-                  const taskPoints = week.taskPoints?.[taskId] || 1.0;
-
-                  if (week.tasks[taskId]) {
-                    const isLate =
-                      week.lateTasks && week.lateTasks.includes(taskId);
-                    if (isLate) {
-                      scores[person].lateTasks += taskPoints * 0.5;
-                    } else {
-                      scores[person].onTimeTasks += taskPoints;
-                    }
-                  }
-                });
-              });
-            });
-
-            // Add dishwasher points
-            dishwasherLogs.forEach((log) => {
-              if (scores[log.user]) {
-                scores[log.user].dishwasherPoints += log.points;
-              }
-            });
-
-            // Calculate total points
-            Object.keys(scores).forEach((person) => {
-              scores[person].totalPoints =
-                scores[person].onTimeTasks +
-                scores[person].lateTasks +
-                scores[person].dishwasherPoints;
-            });
-
-            // Save to Firebase
-            await retryWithBackoff(() =>
-              database.ref("leaderboard").set(scores)
-            );
-          } catch (error) {
-            console.error("Error recalculating leaderboard:", error);
-          }
-        };
-
-        const updatePeople = async (newPeople) => {
-          try {
-            await retryWithBackoff(() => database.ref("people").set(newPeople));
-          } catch (error) {
-            handleFirebaseError(error, "personen bijwerken");
-          }
-        };
-
-        const updateTaskDefinitions = async (newTaskDefs) => {
-          try {
-            await retryWithBackoff(() =>
-              database.ref("taskDefinitions").set(newTaskDefs)
-            );
-          } catch (error) {
-            handleFirebaseError(error, "taken bijwerken");
-          }
-        };
-
-        const updateRotationOffsets = async (newOffsets) => {
-          try {
-            await retryWithBackoff(() =>
-              database.ref("rotationOffsets").set(newOffsets)
-            );
-          } catch (error) {
-            handleFirebaseError(error, "rotatie bijwerken");
-          }
-        };
-
-        const updateDishwasherPoints = async (newPoints) => {
-          try {
-            await retryWithBackoff(() =>
-              database.ref("config/dishwasherPoints").set(newPoints)
-            );
-          } catch (error) {
-            handleFirebaseError(error, "vaatwasser punten bijwerken");
-          }
-        };
-
-        const updateTrackedWeek = async (newWeek) => {
-          try {
-            await retryWithBackoff(() =>
-              database.ref("trackedWeek").set(newWeek)
-            );
-          } catch (error) {
-            handleFirebaseError(error, "week bijwerken");
-          }
-        };
-
-        const selectUser = (user) => {
-          setCurrentUser(user);
-          localStorage.setItem("currentUser", user);
-          setShowUserPicker(false);
-        };
-
-        const getAssignments = () => {
-          const result = {};
-          taskDefinitions.forEach((taskDef) => {
-            const assignedPeople = taskDef.assignedPeople || [];
-
-            if (assignedPeople.length > 1) {
-              const offset = rotationOffsets[taskDef.id] || 0;
-              const index = (trackedWeek - 1 + offset) % assignedPeople.length;
-              result[taskDef.id] = assignedPeople[index];
-            } else if (assignedPeople.length > 0) {
-              result[taskDef.id] = assignedPeople[0];
-            } else {
-              result[taskDef.id] = "Niemand";
-            }
-          });
-          return result;
-        };
-
-        const assignments = getAssignments();
-
-        const toggleTask = (taskId) => {
-          const isPastWeek = trackedWeek < currentCalendarWeek;
-          const isFutureWeek = trackedWeek > currentCalendarWeek;
-
-          if (isFutureWeek) {
-            return;
-          }
-
-          if (isPastWeek && tasks[taskId]) {
-            return;
-          }
-
-          const newStatus = !tasks[taskId];
-          const newTasks = {
-            ...tasks,
-            [taskId]: newStatus,
-          };
-          updateTasks(newTasks);
-          const taskName =
-            taskDefinitions.find((t) => t.id === taskId)?.name || taskId;
-
-          // If completing a task in a past week, mark it as late in history
-          if (isPastWeek && newStatus) {
-            const weekInHistory = history.find(
-              (week) =>
-                week.weekNumber === trackedWeek && week.year === currentYear
-            );
-
-            if (weekInHistory) {
-              const taskDef = taskDefinitions.find((t) => t.id === taskId);
-              const currentTaskPoints = taskDef?.points || 1.0;
-
-              const updatedHistory = history.map((week) => {
-                if (
-                  week.weekNumber === trackedWeek &&
-                  week.year === currentYear
-                ) {
-                  // Ensure taskPoints exists, add current points if missing
-                  const weekTaskPoints = week.taskPoints || {};
-                  if (!weekTaskPoints[taskId]) {
-                    weekTaskPoints[taskId] = currentTaskPoints;
-                  }
-
-                  return {
-                    ...week,
-                    tasks: { ...week.tasks, [taskId]: true },
-                    lateTasks: [...(week.lateTasks || []), taskId],
-                    taskPoints: weekTaskPoints,
-                  };
-                }
-                return week;
-              });
-              updateHistory(updatedHistory);
-            }
-          }
-
-          logActivity(
-            newStatus ? "afgevinkt" : "uitgevinkt",
-            taskName,
-            newStatus
-          );
-        };
-
-        const checkAndArchiveOldWeeks = async () => {
-          if (trackedWeek < currentCalendarWeek) {
-            const alreadyCompleted = history.some(
-              (week) =>
-                week.weekNumber === trackedWeek && week.year === currentYear
-            );
-
-            if (!alreadyCompleted) {
-              // Fetch tasks from Firebase for the week being archived
-              try {
-                const weekTasksSnapshot = await database
-                  .ref(`tasksByWeek/${trackedWeek}`)
-                  .once("value");
-                const weekTasks = weekTasksSnapshot.val() || {};
-
-                // Calculate assignments and snapshot task points for the archived week
-                const archivedAssignments = {};
-                const archivedTaskPoints = {};
-                taskDefinitions.forEach((taskDef) => {
-                  const assignedPeople = taskDef.assignedPeople || [];
-                  if (assignedPeople.length > 1) {
-                    const offset = rotationOffsets[taskDef.id] || 0;
-                    const index =
-                      (trackedWeek - 1 + offset) % assignedPeople.length;
-                    archivedAssignments[taskDef.id] = assignedPeople[index];
-                  } else if (assignedPeople.length > 0) {
-                    archivedAssignments[taskDef.id] = assignedPeople[0];
-                  } else {
-                    archivedAssignments[taskDef.id] = "Niemand";
-                  }
-                  // Snapshot the point value at time of archiving
-                  archivedTaskPoints[taskDef.id] = taskDef.points || 1.0;
-                });
-
-                const weekData = {
-                  weekNumber: trackedWeek,
-                  year: currentYear,
-                  dateRange: getWeekDateRange(trackedWeek, currentYear),
-                  completedDate: new Date().toISOString(),
-                  assignments: archivedAssignments,
-                  tasks: weekTasks,
-                  taskPoints: archivedTaskPoints, // Frozen point values
-                  lateTasks: [], // Initialize empty - tasks completed later will be added here
-                  autoArchived: true,
-                };
-
-                const newHistory = [...history, weekData].sort((a, b) => {
-                  if (a.year !== b.year) return b.year - a.year;
-                  return b.weekNumber - a.weekNumber;
-                });
-
-                updateHistory(newHistory);
-                logActivity(
-                  "automatisch gearchiveerd",
-                  `Week ${trackedWeek}`,
-                  true
-                );
-              } catch (error) {
-                console.error("Error archiving old week:", error);
-              }
-            }
-          }
-        };
-
-        const adjustWeek = (increment) => {
-          const newWeek = Math.max(
-            1,
-            Math.min(currentCalendarWeek, trackedWeek + increment)
-          );
-          updateTrackedWeek(newWeek);
-        };
-
-        const clearHistory = () => {
-          updateHistory([]);
-          setShowClearConfirm(false);
-          logActivity("wiste geschiedenis", "Alle weken", true);
-        };
-
-        const allComplete = taskDefinitions.every(
-          (taskDef) => tasks[taskDef.id]
-        );
-        const completedCount = taskDefinitions.filter(
-          (taskDef) => tasks[taskDef.id]
-        ).length;
-
-        // Render Logic
-        if (showUserPicker) {
-          return (
-            <UserPicker
-              people={people}
-              onSelectUser={selectUser}
-              showInstallGuide={showInstallGuide}
-              setShowInstallGuide={setShowInstallGuide}
-            />
-          );
-        }
-
-        if (isLoading) {
-          return <LoadingView />;
-        }
-
-        return (
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pb-8">
-            <div className="max-w-md mx-auto">
-              {currentView === "tracker" && (
-                <TrackerView
-                  currentUser={currentUser}
-                  setShowUserPicker={setShowUserPicker}
-                  trackedWeek={trackedWeek}
-                  currentYear={currentYear}
-                  currentCalendarWeek={currentCalendarWeek}
-                  taskDefinitions={taskDefinitions}
-                  tasks={tasks}
-                  assignments={assignments}
-                  completedCount={completedCount}
-                  timeUntilDeadline={timeUntilDeadline}
-                  toggleTask={toggleTask}
-                  setCurrentView={setCurrentView}
-                  allComplete={allComplete}
-                  dishwasherLogs={dishwasherLogs}
-                  dishwasherPoints={dishwasherPoints}
-                  canEmptyDishwasherToday={canEmptyDishwasherToday}
-                  getDishwasherCountThisWeek={getDishwasherCountThisWeek}
-                  getLastDishwasherLog={getLastDishwasherLog}
-                  handleDishwasherClick={handleDishwasherClick}
-                />
-              )}
-              {currentView === "activity" && (
-                <ActivityView
-                  activityLog={activityLog}
-                  setCurrentView={setCurrentView}
-                />
-              )}
-              {currentView === "stats" && (
-                <StatsView
-                  setCurrentView={setCurrentView}
-                  people={people}
-                  history={history}
-                  activityLog={activityLog}
-                  taskDefinitions={taskDefinitions}
-                  dishwasherLogs={dishwasherLogs}
-                />
-              )}
-              {currentView === "history" && (
-                <HistoryView
-                  history={history}
-                  taskDefinitions={taskDefinitions}
-                  setCurrentView={setCurrentView}
-                  showClearConfirm={showClearConfirm}
-                  setShowClearConfirm={setShowClearConfirm}
-                  clearHistory={clearHistory}
-                />
-              )}
-              {currentView === "edit" && (
-                <EditView
-                  trackedWeek={trackedWeek}
-                  currentYear={currentYear}
-                  currentCalendarWeek={currentCalendarWeek}
-                  taskDefinitions={taskDefinitions}
-                  people={people}
-                  assignments={assignments}
-                  rotationOffsets={rotationOffsets}
-                  tasks={tasks}
-                  dishwasherPoints={dishwasherPoints}
-                  updateDishwasherPoints={updateDishwasherPoints}
-                  adjustWeek={adjustWeek}
-                  updateTrackedWeek={updateTrackedWeek}
-                  updateRotationOffsets={updateRotationOffsets}
-                  updatePeople={updatePeople}
-                  storedLeaderboard={storedLeaderboard}
-                  updateTaskDefinitions={updateTaskDefinitions}
-                  updateTasks={updateTasks}
-                  logActivity={logActivity}
-                  setCurrentView={setCurrentView}
-                  currentUser={currentUser}
-                  activityLog={activityLog}
-                />
-              )}
-
-              {/* Dishwasher Confirmation Dialog */}
-              <DishwasherConfirmDialog
-                isOpen={showDishwasherConfirm}
-                onConfirm={confirmDishwasher}
-                onCancel={cancelDishwasher}
-              />
-            </div>
-          </div>
+          </>
         );
       }
 
       // ============================================================================
-      // 🚀 SECTION: App Initialization
+      // INIT
       // ============================================================================
 
-      const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(
-        <ErrorBoundary>
-          <CleaningTracker />
-        </ErrorBoundary>
-      );
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
     </script>
   </body>
 </html>
