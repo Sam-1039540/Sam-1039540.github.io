@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#3B82F6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Schone Zwaan" />
+    <link rel="manifest" href="/manifest.json" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/icons/icon-192.png"
+    />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
     <title>Schone Zwaan</title>
     <script
       crossorigin
@@ -48,6 +59,19 @@
       }
       .swan-bounce {
         animation: swanBounce 1s ease-in-out infinite;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.2s ease-out;
       }
     </style>
   </head>
@@ -826,6 +850,19 @@
                           <Icons.Settings size={20} className="text-gray-600" />
                         </button>
                       </div>
+                      {activity.status !== undefined && (
+                        <div
+                          className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            activity.status ? "bg-green-100" : "bg-gray-100"
+                          }`}
+                        >
+                          {activity.status ? (
+                            <Check size={14} className="text-green-600" />
+                          ) : (
+                            <X size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <div className="flex-1 bg-gray-200 rounded-full h-2">
@@ -1368,7 +1405,39 @@
                               {formatTimestamp(act.timestamp)}
                             </div>
                           </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 1st Place - SCHOONSTE ZWAAN */}
+                  {leaderboard[0] && (
+                    <div className="flex-1 text-center">
+                      <div className="bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-500 rounded-2xl p-6 shadow-2xl relative">
+                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
+                          👑 Schoonste Zwaan
                         </div>
+                        <div className="text-6xl mb-2 animate-bounce">🦢</div>
+                        <div className="text-5xl font-bold text-yellow-900 mb-1">
+                          1
+                        </div>
+                        <div className="font-bold text-yellow-900 text-xl mb-1">
+                          {leaderboard[0].name}
+                        </div>
+                        <div className="text-3xl font-bold text-yellow-900">
+                          {leaderboard[0].points % 1 === 0
+                            ? leaderboard[0].points
+                            : leaderboard[0].points.toFixed(2)}
+                        </div>
+                        <div className="text-sm text-yellow-800">punten</div>
+                        {leaderboard[0].currentStreak > 0 && (
+                          <div className="mt-2 text-orange-600 font-bold text-sm">
+                            🔥 {leaderboard[0].currentStreak}{" "}
+                            {leaderboard[0].currentStreak === 1
+                              ? "week"
+                              : "weken"}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
