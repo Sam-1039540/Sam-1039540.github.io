@@ -276,7 +276,6 @@
           localStorage.getItem("currentUser") || ""
         );
         const [view, setView] = useState("tracker");
-        const [testDate, setTestDate] = useState(null);
 
         // Firebase state
         const [config, setConfig] = useState(null);
@@ -291,7 +290,7 @@
           useState(false);
         const [loading, setLoading] = useState(true);
 
-        const now = testDate ? new Date(testDate) : new Date();
+        const now = new Date();
         const currentWeek = getWeekNumber(now);
         const currentYear = now.getFullYear();
 
@@ -392,21 +391,13 @@
 
         const handleWeekTransition = async () => {
           try {
-            // 1. Calculate points for completed week
+            // 1. Calculate dishwasher points for completed week (tasks already counted in real-time)
             const weekPoints = {};
             config.people.forEach((person) => {
-              weekPoints[person] = { onTime: 0, late: 0, dishwasher: 0 };
+              weekPoints[person] = { dishwasher: 0 };
             });
 
-            // Add task points
-            config.tasks.forEach((task) => {
-              const assignment = getAssignment(task, config.currentWeek);
-              if (currentTasks[task.id] && assignment) {
-                weekPoints[assignment].onTime += task.points || 1.0;
-              }
-            });
-
-            // Add dishwasher points from completed week
+            // ONLY add dishwasher points (task points already added in real-time)
             dishwasherLogs
               .filter((log) => log.weekNumber === config.currentWeek)
               .forEach((log) => {
@@ -415,7 +406,7 @@
                 }
               });
 
-            // 2. Update cumulative leaderboard
+            // 2. Update cumulative leaderboard (only dishwasher, tasks already counted)
             const newLeaderboard = { ...leaderboard };
             Object.entries(weekPoints).forEach(([person, points]) => {
               if (!newLeaderboard[person]) {
@@ -427,10 +418,9 @@
                   dishwasherCount: 0,
                 };
               }
-              newLeaderboard[person].onTimePoints += points.onTime;
+              // Only add dishwasher points - task points were already added in real-time
               newLeaderboard[person].dishwasherPoints += points.dishwasher;
-              newLeaderboard[person].totalPoints +=
-                points.onTime + points.dishwasher;
+              newLeaderboard[person].totalPoints += points.dishwasher;
             });
 
             // Count dishwasher logs
@@ -530,6 +520,29 @@
             }
             logActivity(user, "afgevinkt (te laat)", taskName, true);
           } else {
+            // REAL-TIME LEADERBOARD UPDATE for current week tasks
+            if (!isLastWeek) {
+              const assignment = getAssignment(task, config.currentWeek);
+              if (assignment) {
+                const newLeaderboard = { ...leaderboard };
+                if (!newLeaderboard[assignment]) {
+                  newLeaderboard[assignment] = {
+                    totalPoints: 0,
+                    onTimePoints: 0,
+                    latePoints: 0,
+                    dishwasherPoints: 0,
+                    dishwasherCount: 0,
+                  };
+                }
+
+                const pointChange = (task.points || 1.0) * (newStatus ? 1 : -1);
+                newLeaderboard[assignment].onTimePoints += pointChange;
+                newLeaderboard[assignment].totalPoints += pointChange;
+
+                await db.ref("leaderboard").set(newLeaderboard);
+              }
+            }
+
             logActivity(
               user,
               newStatus ? "afgevinkt" : "uitgevinkt",
@@ -973,7 +986,7 @@
                         <h1 className="text-2xl font-bold text-gray-800">
                           🏆 Leaderboard
                         </h1>
-                        <p className="text-gray-600">Alle tijd punten</p>
+                        <p className="text-gray-600">Wie is het schoonst?</p>
                       </div>
                     </div>
                   </div>
@@ -1198,8 +1211,6 @@
                   onBack={() => setView("tracker")}
                   currentWeek={config.currentWeek}
                   getAssignment={getAssignment}
-                  testDate={testDate}
-                  setTestDate={setTestDate}
                 />
               )}
 
@@ -1222,14 +1233,7 @@
       // SETTINGS VIEW
       // ============================================================================
 
-      function SettingsView({
-        config,
-        onBack,
-        currentWeek,
-        getAssignment,
-        testDate,
-        setTestDate,
-      }) {
+      function SettingsView({ config, onBack, currentWeek, getAssignment }) {
         const [showAddPerson, setShowAddPerson] = useState(false);
         const [showAddTask, setShowAddTask] = useState(false);
         const [newPerson, setNewPerson] = useState("");
@@ -1319,27 +1323,6 @@
                   <p className="text-gray-600">Configuratie</p>
                 </div>
               </div>
-            </div>
-
-            {/* TEST DATE */}
-            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-5 mb-4">
-              <h3 className="font-semibold text-orange-800 mb-2">
-                🧪 Test Datum
-              </h3>
-              <input
-                type="datetime-local"
-                value={testDate || ""}
-                onChange={(e) => setTestDate(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-orange-300 rounded-lg mb-2"
-              />
-              {testDate && (
-                <button
-                  onClick={() => setTestDate(null)}
-                  className="w-full bg-orange-100 hover:bg-orange-200 text-orange-800 p-2 rounded-lg text-sm"
-                >
-                  Reset
-                </button>
-              )}
             </div>
 
             {/* PEOPLE */}
