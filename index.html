@@ -1167,6 +1167,20 @@
           return <PandaLoadingScreen />;
         }
 
+        // Show Panda Points view
+        if (view === "pandaPoints") {
+          return (
+            <PandaPointsView
+              user={user}
+              people={config.people}
+              onBack={() => {
+                setLoadingPandaZone(false);
+                setView("tracker");
+              }}
+            />
+          );
+        }
+
         return (
           <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pb-8">
             <div className="max-w-md mx-auto">
@@ -1527,18 +1541,6 @@
                     })}
                   </div>
                 </>
-              )}
-
-              {/* PANDA POINTS VIEW */}
-              {view === "pandaPoints" && (
-                <PandaPointsView
-                  user={user}
-                  people={config.people}
-                  onBack={() => {
-                    setLoadingPandaZone(false);
-                    setView("tracker");
-                  }}
-                />
               )}
 
               {/* LEADERBOARD VIEW */}
