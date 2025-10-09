@@ -741,32 +741,22 @@
                           </div>
                         </div>
 
-                        {points > 0 && (
-                          <div className="mt-3">
-                            <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
-                              <span>Next +1pt</span>
-                              <span>
-                                {timeUntilNext.days}d {timeUntilNext.hours}h
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2 border border-gray-400">
-                              <div
-                                className="bg-orange-500 h-full rounded-full transition-all"
-                                style={{
-                                  width: `${timeUntilNext.progressPercent}%`,
-                                }}
-                              />
-                            </div>
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
+                            <span>Next +1pt</span>
+                            <span>
+                              {timeUntilNext.days}d {timeUntilNext.hours}h
+                            </span>
                           </div>
-                        )}
-
-                        {points === 0 && (
-                          <div className="bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400 rounded-xl p-2 mt-3">
-                            <div className="text-sm font-bold text-green-700 text-center">
-                              ✨ PERFECT SCORE
-                            </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 border border-gray-400">
+                            <div
+                              className="bg-orange-500 h-full rounded-full transition-all"
+                              style={{
+                                width: `${timeUntilNext.progressPercent}%`,
+                              }}
+                            />
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
