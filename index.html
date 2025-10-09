@@ -73,6 +73,42 @@
       .animate-fadeIn {
         animation: fadeIn 0.2s ease-out;
       }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+      @keyframes wiggle {
+        0%,
+        100% {
+          transform: rotate(-2deg);
+        }
+        50% {
+          transform: rotate(2deg);
+        }
+      }
+      @keyframes glow {
+        0%,
+        100% {
+          box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 40px rgba(255, 255, 0, 0.8);
+        }
+      }
+      .float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .wiggle {
+        animation: wiggle 1s ease-in-out infinite;
+      }
+      .glow {
+        animation: glow 2s ease-in-out infinite;
+      }
     </style>
   </head>
   <body>
@@ -417,6 +453,343 @@
       };
 
       // ============================================================================
+      // PANDA LOADING SCREEN
+      // ============================================================================
+
+      function PandaLoadingScreen() {
+        const [progress, setProgress] = useState(0);
+
+        useEffect(() => {
+          const startTime = Date.now();
+          const duration = 2000; // 2 seconds to reach 100%
+
+          const interval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const newProgress = Math.min((elapsed / duration) * 100, 100);
+            setProgress(newProgress);
+
+            if (newProgress >= 100) {
+              clearInterval(interval);
+            }
+          }, 50);
+
+          return () => clearInterval(interval);
+        }, []);
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-yellow-300 via-pink-400 to-purple-500 flex items-center justify-center p-4">
+            <div
+              className="bg-gradient-to-br from-yellow-300 via-pink-400 to-purple-500 rounded-2xl p-8 flex flex-col items-center justify-center border-4 border-black max-w-sm w-full"
+              style={{ boxShadow: "8px 8px 0 black" }}
+            >
+              <div className="bg-red-600 text-white px-6 py-2 rounded-full text-xs font-black mb-4 border-2 border-black animate-pulse">
+                🔒 CLASSIFIED 🔒
+              </div>
+              <div className="text-7xl mb-3">🐼</div>
+              <h2 className="text-xl font-black text-black mb-4">
+                ACCESSING PANDA DATABASE...
+              </h2>
+              <div className="w-full max-w-xs">
+                <div className="bg-white/30 rounded-full h-4 overflow-hidden border-2 border-black mb-2">
+                  <div
+                    className="bg-white h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div
+                  className="flex justify-between text-xs font-black text-white"
+                  style={{ textShadow: "1px 1px 0 black" }}
+                >
+                  <span>LOADING...</span>
+                  <span>{Math.floor(progress)}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ============================================================================
+      // PANDA POINTS VIEW
+      // ============================================================================
+
+      function PandaPointsView({ user, people, onBack }) {
+        const [pandaPeople, setPandaPeople] = useState([]);
+        const [loading, setLoading] = useState(true);
+
+        const randomPhrases = [
+          "gelangd",
+          "gewiept",
+          "gescoord",
+          "een nummertje gemaakt",
+          "geneukt",
+          "genaaid",
+          "gebeukt",
+          "gepompt",
+          "geknald",
+          "gebonkt",
+          "geramd",
+          "gelegen",
+          "gevrijd",
+          "seks gehad",
+          "de lakens gedeeld",
+          "het bed ingedoken",
+          "de liefde bedreven",
+        ];
+
+        const getRandomPhrase = () => {
+          return randomPhrases[
+            Math.floor(Math.random() * randomPhrases.length)
+          ];
+        };
+
+        const [randomPhrase, setRandomPhrase] = useState(getRandomPhrase());
+
+        useEffect(() => {
+          const ref = db.ref("pandaPoints");
+          ref.on("value", (snap) => {
+            const data = snap.val();
+            if (data) {
+              setPandaPeople(data);
+            } else {
+              // Initialize
+              const initial = people.map((name) => ({
+                name,
+                lastReset: Date.now(),
+                avatar: "🐼",
+              }));
+              ref.set(initial);
+              setPandaPeople(initial);
+            }
+            setLoading(false);
+          });
+          return () => ref.off();
+        }, [people]);
+
+        const calculatePoints = (lastResetTimestamp) => {
+          return Math.floor(
+            (Date.now() - lastResetTimestamp) / (7 * 24 * 60 * 60 * 1000)
+          );
+        };
+
+        const calculateTimeUntilNextPoint = (lastResetTimestamp) => {
+          const now = Date.now();
+          const weeksSince = Math.floor(
+            (now - lastResetTimestamp) / (7 * 24 * 60 * 60 * 1000)
+          );
+          const nextPointTime =
+            lastResetTimestamp + (weeksSince + 1) * 7 * 24 * 60 * 60 * 1000;
+          const timeLeft = nextPointTime - now;
+          const days = Math.floor(timeLeft / (24 * 60 * 60 * 1000));
+          const hours = Math.floor(
+            (timeLeft % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
+          );
+          const minutes = Math.floor(
+            (timeLeft % (60 * 60 * 1000)) / (60 * 1000)
+          );
+          const weekMs = 7 * 24 * 60 * 60 * 1000;
+          const timeSinceLastPoint =
+            now - (lastResetTimestamp + weeksSince * weekMs);
+          const progressPercent = (timeSinceLastPoint / weekMs) * 100;
+          return { days, hours, minutes, progressPercent };
+        };
+
+        const getAchievement = (points) => {
+          if (points === 0)
+            return {
+              title: "PANDA KING",
+              emoji: "👑",
+              color: "text-green-700",
+            };
+          if (points <= 2)
+            return { title: "BABY PANDA", emoji: "🍼", color: "text-blue-600" };
+          if (points <= 5)
+            return { title: "PANDA", emoji: "🐼", color: "text-gray-700" };
+          if (points <= 9)
+            return {
+              title: "VETERAN PANDA",
+              emoji: "🎖️",
+              color: "text-orange-600",
+            };
+          if (points <= 14)
+            return {
+              title: "PANDA MASTER",
+              emoji: "🥋",
+              color: "text-purple-600",
+            };
+          return { title: "ANCIENT PANDA", emoji: "👴", color: "text-red-700" };
+        };
+
+        const handleReset = async (personName) => {
+          const updated = pandaPeople.map((p) =>
+            p.name === personName ? { ...p, lastReset: Date.now() } : p
+          );
+          await db.ref("pandaPoints").set(updated);
+          setRandomPhrase(getRandomPhrase());
+        };
+
+        const sortedPeople = [...pandaPeople].sort((a, b) => {
+          const pointsA = calculatePoints(a.lastReset);
+          const pointsB = calculatePoints(b.lastReset);
+          return pointsB - pointsA;
+        });
+
+        if (loading) {
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 flex items-center justify-center">
+              <div className="text-6xl float">🐼</div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 p-4">
+            <div className="max-w-md mx-auto">
+              <div
+                className="bg-gradient-to-r from-yellow-300 to-orange-400 rounded-2xl shadow-lg p-3 mb-4 border-3 border-black"
+                style={{ boxShadow: "4px 4px 0 black" }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={onBack}
+                      className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg"
+                    >
+                      <Icons.ChevronLeft size={20} />
+                    </button>
+                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-black text-lg border-2 border-black">
+                      {user.charAt(0)}
+                    </div>
+                    <span className="text-sm font-black text-purple-900">
+                      AGENT: <span className="text-black">{user}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="bg-gradient-to-br from-yellow-300 via-pink-400 to-purple-500 rounded-3xl p-6 shadow-2xl border-4 border-black glow"
+                style={{ boxShadow: "8px 8px 0 black" }}
+              >
+                <div className="text-center mb-6">
+                  <div className="text-6xl mb-3 float">🐼</div>
+                  <h2
+                    className="text-3xl font-black text-white mb-1"
+                    style={{ textShadow: "3px 3px 0 black" }}
+                  >
+                    PANDA PUNTEN
+                  </h2>
+                  <p className="text-yellow-200 font-black text-sm">
+                    🔒 CLASSIFIED INFO 🔒
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {sortedPeople.map((person, index) => {
+                    const points = calculatePoints(person.lastReset);
+                    const isHuisPanda = index === 0 && points > 0;
+                    const isBest = points === 0;
+                    const achievement = getAchievement(points);
+                    const timeUntilNext = calculateTimeUntilNextPoint(
+                      person.lastReset
+                    );
+
+                    return (
+                      <div
+                        key={person.name}
+                        className={`rounded-2xl p-5 border-3 border-black transform transition-all hover:scale-105 ${
+                          isHuisPanda
+                            ? "bg-gradient-to-r from-red-400 to-orange-500 wiggle"
+                            : isBest
+                            ? "bg-gradient-to-r from-green-300 to-emerald-400"
+                            : "bg-white"
+                        }`}
+                        style={{ boxShadow: "4px 4px 0 black" }}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="text-5xl">{person.avatar}</div>
+                            <div>
+                              <div className="font-black text-xl">
+                                {person.name}
+                              </div>
+                              <div
+                                className={`text-sm font-black mt-1 ${achievement.color}`}
+                              >
+                                {achievement.emoji} {achievement.title}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div
+                              className={`text-4xl font-black ${
+                                isBest
+                                  ? "text-green-700"
+                                  : isHuisPanda
+                                  ? "text-red-900"
+                                  : "text-orange-700"
+                              }`}
+                              style={{
+                                textShadow: "2px 2px 0 rgba(255,255,255,0.3)",
+                              }}
+                            >
+                              {points}
+                            </div>
+                            <div className="text-xs font-bold opacity-75">
+                              PTS
+                            </div>
+                          </div>
+                        </div>
+
+                        {points > 0 && (
+                          <div className="mt-3">
+                            <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
+                              <span>Next +1pt</span>
+                              <span>
+                                {timeUntilNext.days}d {timeUntilNext.hours}h
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 border border-gray-400">
+                              <div
+                                className="bg-orange-500 h-full rounded-full transition-all"
+                                style={{
+                                  width: `${timeUntilNext.progressPercent}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {points === 0 && (
+                          <div className="bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400 rounded-xl p-2 mt-3">
+                            <div className="text-sm font-bold text-green-700 text-center">
+                              ✨ PERFECT SCORE
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => handleReset(user)}
+                  className="w-full mt-6 bg-gradient-to-r from-yellow-300 via-pink-400 to-purple-500 text-white p-5 rounded-2xl font-black text-xl shadow-lg transition-all border-4 border-black transform hover:scale-105 active:scale-95"
+                  style={{
+                    textShadow: "2px 2px 0 black",
+                    boxShadow: "5px 5px 0 black",
+                  }}
+                >
+                  <span className="text-3xl">🐼</span>{" "}
+                  {randomPhrase.toUpperCase()}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ============================================================================
       // MAIN APP
       // ============================================================================
 
@@ -438,6 +811,7 @@
         const [showDishwasherConfirm, setShowDishwasherConfirm] =
           useState(false);
         const [loading, setLoading] = useState(true);
+        const [loadingPandaZone, setLoadingPandaZone] = useState(false);
 
         const now = new Date();
         const currentWeek = getWeekNumber(now);
@@ -788,29 +1162,38 @@
           Object.values(currentTasks).filter(Boolean).length;
         const totalTasks = config.tasks.length;
 
+        // Show loading screen when accessing Panda Zone
+        if (loadingPandaZone) {
+          return <PandaLoadingScreen />;
+        }
+
         return (
           <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pb-8">
             <div className="max-w-md mx-auto">
               {/* USER INDICATOR */}
-              <div className="bg-white rounded-xl shadow-md p-3 mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-semibold text-sm">
-                    {user.charAt(0)}
+              {view !== "pandaPoints" && (
+                <div className="bg-white rounded-xl shadow-md p-3 mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-semibold text-sm">
+                      {user.charAt(0)}
+                    </div>
+                    <span className="text-sm text-gray-600">
+                      <span className="font-semibold text-gray-800">
+                        {user}
+                      </span>
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-600">
-                    <span className="font-semibold text-gray-800">{user}</span>
-                  </span>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem("currentUser");
+                      setUser("");
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    Wissel
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("currentUser");
-                    setUser("");
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-700"
-                >
-                  Wissel
-                </button>
-              </div>
+              )}
 
               {/* TRACKER VIEW */}
               {view === "tracker" && (
@@ -828,6 +1211,19 @@
                         </p>
                       </div>
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setLoadingPandaZone(true);
+                            setTimeout(() => {
+                              setLoadingPandaZone(false);
+                              setView("pandaPoints");
+                            }, 2500);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors opacity-60 hover:opacity-100"
+                          title="Panda Points"
+                        >
+                          <span className="text-xl">🐼</span>
+                        </button>
                         <button
                           onClick={() => setView("leaderboard")}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -1131,6 +1527,18 @@
                     })}
                   </div>
                 </>
+              )}
+
+              {/* PANDA POINTS VIEW */}
+              {view === "pandaPoints" && (
+                <PandaPointsView
+                  user={user}
+                  people={config.people}
+                  onBack={() => {
+                    setLoadingPandaZone(false);
+                    setView("tracker");
+                  }}
+                />
               )}
 
               {/* LEADERBOARD VIEW */}
