@@ -828,9 +828,19 @@
         const [isRefreshing, setIsRefreshing] = useState(false);
         const touchStartY = useRef(0);
 
-        const now = new Date();
+        // Make date/week reactive - update every minute to catch week transitions
+        const [now, setNow] = useState(new Date());
         const currentWeek = getWeekNumber(now);
         const currentYear = now.getFullYear();
+
+        // Update current time every minute to catch week transitions
+        useEffect(() => {
+          const interval = setInterval(() => {
+            setNow(new Date());
+          }, 60000); // Check every minute
+
+          return () => clearInterval(interval);
+        }, []);
 
         // ============================================================================
         // FIREBASE SYNC
@@ -913,8 +923,10 @@
         // WEEK TRANSITION LOGIC
         // ============================================================================
 
+        const isTransitioning = useRef(false);
+
         useEffect(() => {
-          if (!config || loading) return;
+          if (!config || loading || isTransitioning.current) return;
 
           const needsTransition = config.currentWeek < currentWeek;
 
@@ -923,74 +935,45 @@
               from: config.currentWeek,
               to: currentWeek,
             });
+            isTransitioning.current = true;
             handleWeekTransition();
           }
         }, [config, currentWeek, loading]);
 
         const handleWeekTransition = async () => {
           try {
-            // 1. Calculate dishwasher points for completed week (tasks already counted in real-time)
-            const weekPoints = {};
-            config.people.forEach((person) => {
-              weekPoints[person] = { dishwasher: 0 };
-            });
+            console.log("🔄 Starting week transition...");
+            console.log(
+              "Current leaderboard (will be preserved):",
+              leaderboard
+            );
 
-            // ONLY add dishwasher points (task points already added in real-time)
-            dishwasherLogs
-              .filter((log) => log.weekNumber === config.currentWeek)
-              .forEach((log) => {
-                if (weekPoints[log.user]) {
-                  weekPoints[log.user].dishwasher += log.points;
-                }
-              });
+            // NOTE: Leaderboard is NOT modified during transition!
+            // All points (tasks + dishwasher) are already added in real-time when they happen.
+            // Week transition only needs to:
+            // 1. Move current tasks to last week
+            // 2. Clear current tasks for new week
+            // 3. Update week numbers
 
-            // 2. Update cumulative leaderboard (only dishwasher, tasks already counted)
-            const newLeaderboard = { ...leaderboard };
-            Object.entries(weekPoints).forEach(([person, points]) => {
-              if (!newLeaderboard[person]) {
-                newLeaderboard[person] = {
-                  totalPoints: 0,
-                  onTimePoints: 0,
-                  latePoints: 0,
-                  dishwasherPoints: 0,
-                  dishwasherCount: 0,
-                };
-              }
-              // Only add dishwasher points - task points were already added in real-time
-              newLeaderboard[person].dishwasherPoints += points.dishwasher;
-              newLeaderboard[person].totalPoints += points.dishwasher;
-            });
-
-            // Count dishwasher logs
-            config.people.forEach((person) => {
-              const count = dishwasherLogs.filter(
-                (log) => log.user === person
-              ).length;
-              if (newLeaderboard[person]) {
-                newLeaderboard[person].dishwasherCount = count;
-              }
-            });
-
-            // 3. Move current tasks to last week
+            // 1. Move current tasks to last week
+            console.log("📦 Moving current tasks to last week:", currentTasks);
             await db.ref("lastWeekTasks").set(currentTasks);
 
-            // 4. Clear current tasks
+            // 2. Clear current tasks - explicitly set ALL to false
             const emptyTasks = {};
             config.tasks.forEach((task) => {
               emptyTasks[task.id] = false;
             });
+            console.log("🧹 Clearing current tasks, setting to:", emptyTasks);
             await db.ref("currentWeekTasks").set(emptyTasks);
 
-            // 5. Update config
+            // 3. Update config with new week numbers
             await db.ref("config").update({
               currentWeek: currentWeek,
               lastWeek: config.currentWeek,
             });
 
-            // 6. Save leaderboard
-            await db.ref("leaderboard").set(newLeaderboard);
-
-            // 7. Log activity
+            // 4. Log activity
             logActivity(
               "systeem",
               "week automatisch overgegaan",
@@ -998,10 +981,12 @@
               true
             );
 
-            console.log("✅ Week transition complete");
+            console.log("✅ Week transition complete - leaderboard preserved");
+            isTransitioning.current = false;
           } catch (error) {
             console.error("❌ Week transition error:", error);
             toast("Fout bij week overgang");
+            isTransitioning.current = false;
           }
         };
 
