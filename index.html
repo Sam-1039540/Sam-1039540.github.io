@@ -1314,9 +1314,29 @@
                           {getWeekDateRange(config.currentWeek, currentYear)}
                         </p>
                         {config.currentWeek !== currentWeek && (
-                          <div className="mt-2 text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded inline-block">
-                            ⚠️ Week niet gesynchroniseerd (Nu is week{" "}
-                            {currentWeek})
+                          <div className="mt-2 text-xs bg-orange-100 text-orange-700 px-3 py-2 rounded flex items-center gap-2">
+                            <span>
+                              ⚠️ Week niet gesynchroniseerd (DB: week{" "}
+                              {config.currentWeek}, Nu is week {currentWeek})
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (
+                                  confirm(
+                                    `Week corrigeren van ${config.currentWeek} naar ${currentWeek}?`
+                                  )
+                                ) {
+                                  await db.ref("config").update({
+                                    currentWeek: currentWeek,
+                                    lastWeek: currentWeek - 1,
+                                  });
+                                  toast("Week gecorrigeerd!", "success");
+                                }
+                              }}
+                              className="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-xs font-semibold"
+                            >
+                              Herstel Week
+                            </button>
                           </div>
                         )}
                       </div>
