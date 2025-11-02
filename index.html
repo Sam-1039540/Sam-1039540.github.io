@@ -514,6 +514,22 @@
       // PANDA POINTS VIEW
       // ============================================================================
 
+      // Helper function to create initial panda data for a person
+      const createPandaPersonData = (name) => ({
+        name,
+        lastReset: Date.now(),
+        avatar: "🐼",
+      });
+
+      // Helper function to create initial leaderboard data for a person
+      const createLeaderboardData = () => ({
+        totalPoints: 0,
+        onTimePoints: 0,
+        latePoints: 0,
+        dishwasherPoints: 0,
+        dishwasherCount: 0,
+      });
+
       function PandaPointsView({ user, people, onBack }) {
         const [pandaPeople, setPandaPeople] = useState([]);
         const [loading, setLoading] = useState(true);
@@ -573,19 +589,15 @@
             if (data) {
               setPandaPeople(data);
             } else {
-              // Initialize
-              const initial = people.map((name) => ({
-                name,
-                lastReset: Date.now(),
-                avatar: "🐼",
-              }));
+              // Initialize on first run only
+              const initial = people.map((name) => createPandaPersonData(name));
               ref.set(initial);
               setPandaPeople(initial);
             }
             setLoading(false);
           });
           return () => ref.off();
-        }, [people]);
+        }, []); // Empty dependency - we now handle additions/removals manually in settings
 
         const calculatePoints = (lastResetTimestamp) => {
           return Math.floor(
@@ -1110,13 +1122,7 @@
               if (assignment) {
                 const newLeaderboard = { ...leaderboard };
                 if (!newLeaderboard[assignment]) {
-                  newLeaderboard[assignment] = {
-                    totalPoints: 0,
-                    onTimePoints: 0,
-                    latePoints: 0,
-                    dishwasherPoints: 0,
-                    dishwasherCount: 0,
-                  };
+                  newLeaderboard[assignment] = createLeaderboardData();
                 }
 
                 const pointChange = (task.points || 1.0) * (newStatus ? 1 : -1);
@@ -1159,13 +1165,7 @@
           // Update leaderboard immediately
           const newLeaderboard = { ...leaderboard };
           if (!newLeaderboard[user]) {
-            newLeaderboard[user] = {
-              totalPoints: 0,
-              onTimePoints: 0,
-              latePoints: 0,
-              dishwasherPoints: 0,
-              dishwasherCount: 0,
-            };
+            newLeaderboard[user] = createLeaderboardData();
           }
 
           newLeaderboard[user].dishwasherPoints += config.dishwasherPoints;
@@ -1713,13 +1713,7 @@
                     const fullLeaderboard = { ...leaderboard };
                     config.people.forEach((person) => {
                       if (!fullLeaderboard[person]) {
-                        fullLeaderboard[person] = {
-                          totalPoints: 0,
-                          onTimePoints: 0,
-                          latePoints: 0,
-                          dishwasherPoints: 0,
-                          dishwasherCount: 0,
-                        };
+                        fullLeaderboard[person] = createLeaderboardData();
                       }
                     });
 
@@ -2042,7 +2036,22 @@
         const addPerson = async () => {
           if (!newPerson.trim() || config.people.includes(newPerson.trim()))
             return;
-          await updateConfig({ people: [...config.people, newPerson.trim()] });
+          const personName = newPerson.trim();
+
+          // Update config with new person
+          await updateConfig({ people: [...config.people, personName] });
+
+          // Initialize leaderboard entry for new person
+          await db
+            .ref(`leaderboard/${personName}`)
+            .set(createLeaderboardData());
+
+          // Add person to Panda Points leaderboard
+          const pandaPointsSnap = await db.ref("pandaPoints").once("value");
+          const pandaPoints = pandaPointsSnap.val() || [];
+          pandaPoints.push(createPandaPersonData(personName));
+          await db.ref("pandaPoints").set(pandaPoints);
+
           setNewPerson("");
           setShowAddPerson(false);
         };
@@ -2056,6 +2065,17 @@
             people: config.people.filter((p) => p !== person),
             tasks: newTasks,
           });
+
+          // Remove from leaderboard
+          await db.ref(`leaderboard/${person}`).remove();
+
+          // Remove from Panda Points leaderboard
+          const pandaPointsSnap = await db.ref("pandaPoints").once("value");
+          const pandaPoints = pandaPointsSnap.val() || [];
+          const updatedPandaPoints = pandaPoints.filter(
+            (p) => p.name !== person
+          );
+          await db.ref("pandaPoints").set(updatedPandaPoints);
         };
 
         const addTask = async () => {
