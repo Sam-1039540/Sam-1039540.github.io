@@ -2048,6 +2048,30 @@
         const [expandedTasks, setExpandedTasks] = useState({});
         const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+        // Safety check: Ensure config has required arrays
+        if (!config || !config.people || !config.tasks) {
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+              <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onBack}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <Icons.ChevronLeft size={20} />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-800">
+                      ⚙️ Instellingen
+                    </h1>
+                    <p className="text-red-600">Configuratie wordt geladen...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         const updateConfig = async (updates) => {
           await db.ref("config").update(updates);
         };
@@ -2056,7 +2080,7 @@
           try {
             // Reset all people's points to 0 in the main leaderboard
             const resetData = {};
-            config.people.forEach((person) => {
+            (config.people || []).forEach((person) => {
               resetData[person] = createLeaderboardData();
             });
             await db.ref("leaderboard").set(resetData);
@@ -2094,7 +2118,7 @@
         const removePerson = async (person) => {
           const newTasks = config.tasks.map((t) => ({
             ...t,
-            assignedPeople: t.assignedPeople.filter((p) => p !== person),
+            assignedPeople: (t.assignedPeople || []).filter((p) => p !== person),
           }));
           await updateConfig({
             people: config.people.filter((p) => p !== person),
@@ -2141,17 +2165,20 @@
 
         const toggleTaskPerson = async (taskId, person) => {
           const task = config.tasks.find((t) => t.id === taskId);
-          const assigned = task.assignedPeople.includes(person);
+          const assignedPeople = task.assignedPeople || [];
+          const assigned = assignedPeople.includes(person);
           const newAssigned = assigned
-            ? task.assignedPeople.filter((p) => p !== person)
-            : [...task.assignedPeople, person];
+            ? assignedPeople.filter((p) => p !== person)
+            : [...assignedPeople, person];
           await updateTask(taskId, { assignedPeople: newAssigned });
         };
 
         const changeRotation = async (taskId, person) => {
           const task = config.tasks.find((t) => t.id === taskId);
-          const personIndex = task.assignedPeople.indexOf(person);
-          const currentIndex = (currentWeek - 1) % task.assignedPeople.length;
+          const assignedPeople = task.assignedPeople || [];
+          if (assignedPeople.length === 0) return;
+          const personIndex = assignedPeople.indexOf(person);
+          const currentIndex = (currentWeek - 1) % assignedPeople.length;
           const newOffset = personIndex - currentIndex;
           await db.ref(`config/rotationOffsets/${taskId}`).set(newOffset);
         };
@@ -2245,7 +2272,7 @@
                       {task.name}
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {task.assignedPeople.map((person) => (
+                      {(task.assignedPeople || []).map((person) => (
                         <button
                           key={person}
                           onClick={() => changeRotation(task.id, person)}
@@ -2368,12 +2395,12 @@
                               key={person}
                               onClick={() => toggleTaskPerson(task.id, person)}
                               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                                task.assignedPeople.includes(person)
+                                (task.assignedPeople || []).includes(person)
                                   ? "bg-green-100 text-green-700 hover:bg-green-200"
                                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                               }`}
                             >
-                              {task.assignedPeople.includes(person)
+                              {(task.assignedPeople || []).includes(person)
                                 ? "✓ "
                                 : "+ "}
                               {person}
