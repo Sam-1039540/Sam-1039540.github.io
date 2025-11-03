@@ -586,15 +586,21 @@
           const ref = db.ref("pandaPoints");
           ref.on("value", (snap) => {
             const data = snap.val();
-            if (data) {
+            console.log("🐼 Panda Points loaded:", data);
+            if (data && Array.isArray(data)) {
               setPandaPeople(data);
+              setLoading(false);
+            } else if (data && typeof data === "object") {
+              // Convert object to array if needed
+              setPandaPeople(Object.values(data));
+              setLoading(false);
             } else {
               // Initialize on first run only
               const initial = people.map((name) => createPandaPersonData(name));
               ref.set(initial);
               setPandaPeople(initial);
+              setLoading(false);
             }
-            setLoading(false);
           });
           return () => ref.off();
         }, []); // Empty dependency - we now handle additions/removals manually in settings
@@ -2064,7 +2070,9 @@
                     <h1 className="text-2xl font-bold text-gray-800">
                       ⚙️ Instellingen
                     </h1>
-                    <p className="text-red-600">Configuratie wordt geladen...</p>
+                    <p className="text-red-600">
+                      Configuratie wordt geladen...
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2107,9 +2115,18 @@
 
           // Add person to Panda Points leaderboard
           const pandaPointsSnap = await db.ref("pandaPoints").once("value");
-          const pandaPoints = pandaPointsSnap.val() || [];
-          pandaPoints.push(createPandaPersonData(personName));
-          await db.ref("pandaPoints").set(pandaPoints);
+          let pandaPoints = pandaPointsSnap.val() || [];
+
+          // Ensure it's an array
+          if (!Array.isArray(pandaPoints)) {
+            pandaPoints = Object.values(pandaPoints);
+          }
+
+          // Check if person already exists
+          if (!pandaPoints.some((p) => p.name === personName)) {
+            pandaPoints.push(createPandaPersonData(personName));
+            await db.ref("pandaPoints").set(pandaPoints);
+          }
 
           setNewPerson("");
           setShowAddPerson(false);
@@ -2118,7 +2135,9 @@
         const removePerson = async (person) => {
           const newTasks = config.tasks.map((t) => ({
             ...t,
-            assignedPeople: (t.assignedPeople || []).filter((p) => p !== person),
+            assignedPeople: (t.assignedPeople || []).filter(
+              (p) => p !== person
+            ),
           }));
           await updateConfig({
             people: config.people.filter((p) => p !== person),
@@ -2130,7 +2149,13 @@
 
           // Remove from Panda Points leaderboard
           const pandaPointsSnap = await db.ref("pandaPoints").once("value");
-          const pandaPoints = pandaPointsSnap.val() || [];
+          let pandaPoints = pandaPointsSnap.val() || [];
+
+          // Ensure it's an array
+          if (!Array.isArray(pandaPoints)) {
+            pandaPoints = Object.values(pandaPoints);
+          }
+
           const updatedPandaPoints = pandaPoints.filter(
             (p) => p.name !== person
           );
