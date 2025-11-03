@@ -868,51 +868,68 @@
             activity: db.ref("activity"),
           };
 
-          refs.config.on("value", (snap) => {
-            const data = snap.val();
-            if (data) {
-              // Ensure all required fields exist
-              setConfig({
-                currentWeek: data.currentWeek || currentWeek,
-                lastWeek: data.lastWeek || null,
-                people: data.people || [],
-                tasks: data.tasks || [],
-                rotationOffsets: data.rotationOffsets || {},
-                dishwasherPoints: data.dishwasherPoints || 0.25,
-              });
-            } else {
-              // Initialize default config if nothing exists
-              const defaultConfig = {
-                currentWeek: currentWeek,
-                lastWeek: null,
-                people: ["Sam", "Roel", "Stijn", "Tom", "Maxim"],
-                tasks: [
-                  {
-                    id: "woonkamer",
-                    name: "Woonkamer",
-                    assignedPeople: ["Roel", "Stijn"],
-                    points: 1.0,
-                  },
-                  {
-                    id: "keuken",
-                    name: "Keuken",
-                    assignedPeople: ["Tom", "Maxim"],
-                    points: 1.0,
-                  },
-                  {
-                    id: "vuilnis",
-                    name: "Doeken/Vuilnis",
-                    assignedPeople: ["Sam"],
-                    points: 1.0,
-                  },
-                ],
-                rotationOffsets: {},
-                dishwasherPoints: 0.25,
-              };
-              setConfig(defaultConfig);
-              db.ref("config").set(defaultConfig);
+          // Set a timeout in case Firebase doesn't respond
+          const loadTimeout = setTimeout(() => {
+            console.error("⚠️ Firebase loading timeout - connection issue?");
+            setLoading(false);
+          }, 10000); // 10 second timeout
+
+          refs.config.on(
+            "value",
+            (snap) => {
+              clearTimeout(loadTimeout);
+              const data = snap.val();
+              if (data) {
+                // Ensure all required fields exist
+                setConfig({
+                  currentWeek: data.currentWeek || currentWeek,
+                  lastWeek: data.lastWeek || null,
+                  people: data.people || [],
+                  tasks: data.tasks || [],
+                  rotationOffsets: data.rotationOffsets || {},
+                  dishwasherPoints: data.dishwasherPoints || 0.25,
+                });
+                setLoading(false);
+              } else {
+                // Initialize default config if nothing exists
+                const defaultConfig = {
+                  currentWeek: currentWeek,
+                  lastWeek: null,
+                  people: ["Sam", "Roel", "Stijn", "Tom", "Maxim"],
+                  tasks: [
+                    {
+                      id: "woonkamer",
+                      name: "Woonkamer",
+                      assignedPeople: ["Roel", "Stijn"],
+                      points: 1.0,
+                    },
+                    {
+                      id: "keuken",
+                      name: "Keuken",
+                      assignedPeople: ["Tom", "Maxim"],
+                      points: 1.0,
+                    },
+                    {
+                      id: "vuilnis",
+                      name: "Doeken/Vuilnis",
+                      assignedPeople: ["Sam"],
+                      points: 1.0,
+                    },
+                  ],
+                  rotationOffsets: {},
+                  dishwasherPoints: 0.25,
+                };
+                setConfig(defaultConfig);
+                db.ref("config").set(defaultConfig);
+                setLoading(false);
+              }
+            },
+            (error) => {
+              clearTimeout(loadTimeout);
+              console.error("❌ Firebase error:", error);
+              setLoading(false);
             }
-          });
+          );
 
           refs.currentTasks.on("value", (snap) =>
             setCurrentTasks(snap.val() || {})
@@ -926,9 +943,10 @@
           );
           refs.activity.on("value", (snap) => setActivity(snap.val() || []));
 
-          setLoading(false);
-
-          return () => Object.values(refs).forEach((ref) => ref.off());
+          return () => {
+            clearTimeout(loadTimeout);
+            Object.values(refs).forEach((ref) => ref.off());
+          };
         }, []);
 
         // ============================================================================
@@ -2028,9 +2046,26 @@
         const [newPerson, setNewPerson] = useState("");
         const [newTask, setNewTask] = useState("");
         const [expandedTasks, setExpandedTasks] = useState({});
+        const [showResetConfirm, setShowResetConfirm] = useState(false);
 
         const updateConfig = async (updates) => {
           await db.ref("config").update(updates);
+        };
+
+        const resetLeaderboard = async () => {
+          try {
+            // Reset all people's points to 0 in the main leaderboard
+            const resetData = {};
+            config.people.forEach((person) => {
+              resetData[person] = createLeaderboardData();
+            });
+            await db.ref("leaderboard").set(resetData);
+            setShowResetConfirm(false);
+            alert("Leaderboard succesvol gereset! 🎉");
+          } catch (error) {
+            console.error("Error resetting leaderboard:", error);
+            alert("Er ging iets mis bij het resetten van het leaderboard.");
+          }
         };
 
         const addPerson = async () => {
@@ -2251,6 +2286,23 @@
               </div>
             </div>
 
+            {/* RESET LEADERBOARD */}
+            <div className="bg-white rounded-xl shadow-md p-5 mb-4">
+              <h3 className="font-semibold text-gray-700 mb-3">
+                🏆 Reset Leaderboard
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Reset alle puntentelling naar 0. Dit heeft geen invloed op de
+                Panda Punten.
+              </p>
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              >
+                Reset Leaderboard
+              </button>
+            </div>
+
             {/* TASKS */}
             <div className="bg-white rounded-xl shadow-md p-5 mb-4">
               <h3 className="font-semibold text-gray-700 mb-3">📋 Taken</h3>
@@ -2369,6 +2421,17 @@
                 )}
               </div>
             </div>
+
+            {/* RESET LEADERBOARD CONFIRM DIALOG */}
+            <ConfirmDialog
+              isOpen={showResetConfirm}
+              title="Leaderboard Resetten?"
+              message="Weet je zeker dat je alle punten naar 0 wilt zetten? Dit heeft geen invloed op de Panda Points."
+              onConfirm={resetLeaderboard}
+              onCancel={() => setShowResetConfirm(false)}
+              confirmText="Ja, reset leaderboard"
+              cancelText="Annuleer"
+            />
           </>
         );
       }
